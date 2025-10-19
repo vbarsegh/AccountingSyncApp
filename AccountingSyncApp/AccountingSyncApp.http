@@ -1,0 +1,6 @@
+@AccountingSyncApp_HostAddress = http://localhost:5168
+
+GET {{AccountingSyncApp_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
