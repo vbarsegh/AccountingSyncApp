@@ -4,6 +4,7 @@ using Application_Layer.Interfaces_Repository;
 using Domain_Layer.Models;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Application_Layer.Services
 {
@@ -49,54 +50,68 @@ namespace Application_Layer.Services
         //When does SyncFromXeroAsync happen?Automatically when Xero sends a webhook → your controller receives it and calls the sync.
         //what happens->Reads all customers from the local DB. If XeroId is empty → it’s new → create in Xero; otherwise → update Xero record.
         //The idea: whenever a webhook from Xero arrives (for example, a new invoice was created in Xero), you can call this method.
-        public async Task SyncFromXeroAsync()//Its job is to pull updated data from Xero and sync it into your database.
+        public async Task SyncFromXeroAsync()////Its job is to pull updated data from Xero and sync it into your database.
         {
             try
             {
                 _logger.LogInformation("🔄 Starting Xero → DB synchronization...");
 
                 // 1️⃣ Get all contacts from Xero API
-                var contactsJson = await _xeroApiManager.GetCustomersAsync();////this method really gets all customers (contacts) from Xero.
-                Console.WriteLine("hressssss\n\n\n\n" + contactsJson);
-                // 2️⃣ Deserialize JSON
-                var xeroResponse = JsonConvert.DeserializeObject<XeroContactsResponse>(contactsJson);
+                var contactsJson = await _xeroApiManager.GetCustomersAsync();
 
-                if (xeroResponse?.Contacts == null || !xeroResponse.Contacts.Any())
+                // 2️⃣ Parse JSON and extract "Contacts" array
+                var root = JsonConvert.DeserializeObject<JObject>(contactsJson);
+                var contactsArray = root["Contacts"]?.ToObject<List<CustomerReadDto>>() ?? new List<CustomerReadDto>();
+
+                if (!contactsArray.Any())
                 {
                     _logger.LogInformation("No contacts received from Xero.");
                     return;
                 }
 
-                // 3️⃣ Sync each contact into local DB
-                foreach (var contact in xeroResponse.Contacts)
+                // 3️⃣ Manually extract Phone and Address from nested JSON
+                foreach (var item in root["Contacts"])
                 {
-                    var existing = await _customerRepository.GetByXeroIdAsync(contact.ContactID.ToString());
+                    var xeroId = item["ContactID"]?.ToString();
+                    var dto = contactsArray.FirstOrDefault(c => c.XeroId == xeroId);
+                    if (dto == null) continue;
+
+                    dto.Phone = item["Phones"]?.FirstOrDefault()?["PhoneNumber"]?.ToString() ?? string.Empty;
+                    dto.Address = item["Addresses"]?.FirstOrDefault()?["AddressLine1"]?.ToString() ?? string.Empty;
+                }
+
+                // 4️⃣ Sync each contact into local DB
+                foreach (var dto in contactsArray)
+                {
+                    var existing = await _customerRepository.GetByXeroIdAsync(dto.XeroId);
 
                     if (existing == null)
                     {
-                        //doesn’t exist locally, insert it.
-                        _logger.LogInformation($"🟢 Adding new contact: {contact.Name}");
+                        ////doesn’t exist locally, insert it.
+                        // 🟢 New contact → Insert
+                        _logger.LogInformation($"🟢 Adding new contact: {dto.Name}");
 
                         await _customerRepository.InsertAsync(new Customer
                         {
-                            XeroId = contact.ContactID.ToString(),
-                            Name = contact.Name,
-                            Email = contact.EmailAddress ?? "",
-                            Phone = contact.Phones?.FirstOrDefault()?.PhoneNumber ?? "",
-                            Address = contact.Addresses?.FirstOrDefault()?.AddressLine1 ?? "",
+                            XeroId = dto.XeroId,
+                            Name = dto.Name,
+                            Email = dto.Email,
+                            Phone = dto.Phone,
+                            Address = dto.Address,
                             CreatedAt = DateTime.UtcNow,
                             UpdatedAt = DateTime.UtcNow
                         });
                     }
                     else
                     {
-                        //already exists, update it.
-                        _logger.LogInformation($"🟡 Updating existing customer: {contact.Name}");
+                        // 🟡 Existing contact → Update
+                        ////already exists, update it.
+                        _logger.LogInformation($"🟡 Updating existing customer: {dto.Name}");
 
-                        existing.Name = contact.Name;
-                        existing.Email = contact.EmailAddress ?? "";
-                        existing.Phone = contact.Phones.FirstOrDefault()?.PhoneNumber ?? "";
-                        existing.Address = contact.Addresses.FirstOrDefault()?.AddressLine1 ?? "";
+                        existing.Name = dto.Name;
+                        existing.Email = dto.Email;
+                        existing.Phone = dto.Phone;
+                        existing.Address = dto.Address;
                         existing.UpdatedAt = DateTime.UtcNow;
 
                         await _customerRepository.UpdateAsync(existing);
@@ -176,35 +191,6 @@ namespace Application_Layer.Services
                 _logger.LogError(ex, "Error during DB → Xero synchronization");
                 throw;
             }
-        }
-
-
-
-        // ✅ Xero contact response models
-        public class XeroContactsResponse
-        {
-            public List<XeroContact> Contacts { get; set; }
-        }
-
-        public class XeroContact
-        {
-            public string ContactID { get; set; }
-            public string Name { get; set; }
-            public string EmailAddress { get; set; }
-            public List<XeroPhone> Phones { get; set; }
-            public List<XeroAddress> Addresses { get; set; }
-        }
-
-        public class XeroPhone
-        {
-            public string PhoneType { get; set; }
-            public string PhoneNumber { get; set; }
-        }
-
-        public class XeroAddress
-        {
-            public string AddressType { get; set; }
-            public string AddressLine1 { get; set; }
         }
     }
 }
