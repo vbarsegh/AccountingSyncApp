@@ -1,4 +1,4 @@
-﻿using Application_Layer.DTO.Customers;
+﻿ using Application_Layer.DTO.Customers;
 using Application_Layer.Interfaces;
 using Application_Layer.Interfaces_Repository;
 using Domain_Layer.Models;
@@ -54,11 +54,10 @@ namespace Application_Layer.Services
         {
             try
             {
+                Console.WriteLine("hasavvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n\n\n");
                 _logger.LogInformation("🔄 Starting Xero → DB synchronization...");
-
                 // 1️⃣ Get all contacts from Xero API
                 var contactsJson = await _xeroApiManager.GetCustomersAsync();
-
                 // 2️⃣ Parse JSON and extract "Contacts" array
                 var root = JsonConvert.DeserializeObject<JObject>(contactsJson);
                 var contactsArray = root["Contacts"]?.ToObject<List<CustomerReadDto>>() ?? new List<CustomerReadDto>();
@@ -79,52 +78,55 @@ namespace Application_Layer.Services
                     dto.Phone = item["Phones"]?.FirstOrDefault()?["PhoneNumber"]?.ToString() ?? string.Empty;
                     dto.Address = item["Addresses"]?.FirstOrDefault()?["AddressLine1"]?.ToString() ?? string.Empty;
                 }
-
                 // 4️⃣ Sync each contact into local DB
                 foreach (var dto in contactsArray)
                 {
                     var existing = await _customerRepository.GetByXeroIdAsync(dto.XeroId);
-
-                    if (existing == null)
+                    Console.WriteLine("hres->>>>>>>>>>>>>>>" + existing.SyncedToXero);
+                    if (existing.SyncedToXero == false)
                     {
-                        ////doesn’t exist locally, insert it.
-                        // 🟢 New contact → Insert
-                        _logger.LogInformation($"🟢 Adding new contact: {dto.Name}");
-
-                        await _customerRepository.InsertAsync(new Customer
+                        if (existing == null)
                         {
-                            XeroId = dto.XeroId,
-                            Name = dto.Name,
-                            Email = dto.Email,
-                            Phone = dto.Phone,
-                            Address = dto.Address,
-                            CreatedAt = DateTime.UtcNow,
-                            UpdatedAt = DateTime.UtcNow
-                        });
-                    }
-                    else
-                    {
-                        // 🟡 Existing contact → Update
-                        ////already exists, update it.
-                        _logger.LogInformation($"🟡 Updating existing customer: {dto.Name}");
+                            ////doesn’t exist locally, insert it.
+                            // 🟢 New contact → Insert
+                            _logger.LogInformation($"🟢 Adding new contact: {dto.Name}");
 
-                        existing.Name = dto.Name;
-                        existing.Email = dto.Email;
-                        existing.Phone = dto.Phone;
-                        existing.Address = dto.Address;
-                        existing.UpdatedAt = DateTime.UtcNow;
+                            await _customerRepository.InsertAsync(new Customer
+                            {
+                                XeroId = dto.XeroId,
+                                Name = dto.Name,
+                                Email = dto.Email,
+                                Phone = dto.Phone,
+                                Address = dto.Address,
+                                CreatedAt = DateTime.UtcNow,
+                                UpdatedAt = DateTime.UtcNow,
+                                SyncedToXero = false
+                            });
+                        }
+                        else
+                        {
+                            // 🟡 Existing contact → Update
+                            ////already exists, update it.
+                            _logger.LogInformation($"🟡 Updating existing customer: {dto.Name}");
 
-                        await _customerRepository.UpdateAsync(existing);
+                            existing.Name = dto.Name;
+                            existing.Email = dto.Email;
+                            existing.Phone = dto.Phone;
+                            existing.Address = dto.Address;
+                            existing.UpdatedAt = DateTime.UtcNow;
+                            existing.SyncedToXero = false;//check anel
+
+                            await _customerRepository.UpdateAsync(existing);
+                        }
                     }
                 }
-
                 _logger.LogInformation("✅ Xero → DB synchronization completed successfully.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "❌ Error during Xero → DB synchronization");
-                throw;
-            }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "❌ Error during Xero → DB synchronization");
+                    throw;
+                }
         }
 
 
@@ -152,39 +154,39 @@ namespace Application_Layer.Services
                     }
                 }
 
-                // 2️⃣ Sync updated Invoices
-                var allInvoices = await _invoiceRepository.GetAllAsync();
-                foreach (var invoice in allInvoices)
-                {
-                    if (string.IsNullOrEmpty(invoice.XeroId))
-                    {
-                        _logger.LogInformation($"Creating new Xero invoice for customerId {invoice.CustomerId}");
-                        await _xeroInvoiceSync.CreateInvoiceAndSyncAsync(invoice);
-                    }
-                    else
-                    {
-                        _logger.LogInformation($"Updating Xero invoice {invoice.Id}");
-                        await _xeroInvoiceSync.UpdateInvoiceAndSyncAsync(invoice);
-                    }
-                }
+                //// 2️⃣ Sync updated Invoices
+                //var allInvoices = await _invoiceRepository.GetAllAsync();
+                //foreach (var invoice in allInvoices)
+                //{
+                //    if (string.IsNullOrEmpty(invoice.XeroId))
+                //    {
+                //        _logger.LogInformation($"Creating new Xero invoice for customerId {invoice.CustomerId}");
+                //        await _xeroInvoiceSync.CreateInvoiceAndSyncAsync(invoice);
+                //    }
+                //    else
+                //    {
+                //        _logger.LogInformation($"Updating Xero invoice {invoice.Id}");
+                //        await _xeroInvoiceSync.UpdateInvoiceAndSyncAsync(invoice);
+                //    }
+                //}
 
-                // 3️⃣ Sync updated Quotes
-                var allQuotes = await _quoteRepository.GetAllAsync();
-                foreach (var quote in allQuotes)
-                {
-                    if (string.IsNullOrEmpty(quote.XeroId))
-                    {
-                        _logger.LogInformation($"Creating new Xero quote for customerId {quote.CustomerId}");
-                        await _xeroQuoteSync.CreateQuoteAndSyncAsync(quote);
-                    }
-                    else
-                    {
-                        _logger.LogInformation($"Updating Xero quote {quote.Id}");
-                        await _xeroQuoteSync.UpdateQuoteAndSyncAsync(quote);
-                    }
-                }
+                //// 3️⃣ Sync updated Quotes
+                //var allQuotes = await _quoteRepository.GetAllAsync();
+                //foreach (var quote in allQuotes)
+                //{
+                //    if (string.IsNullOrEmpty(quote.XeroId))
+                //    {
+                //        _logger.LogInformation($"Creating new Xero quote for customerId {quote.CustomerId}");
+                //        await _xeroQuoteSync.CreateQuoteAndSyncAsync(quote);
+                //    }
+                //    else
+                //    {
+                //        _logger.LogInformation($"Updating Xero quote {quote.Id}");
+                //        await _xeroQuoteSync.UpdateQuoteAndSyncAsync(quote);
+                //    }
+                //}
 
-                _logger.LogInformation("DB → Xero synchronization completed successfully.");
+                //_logger.LogInformation("DB → Xero synchronization completed successfully.");
             }
             catch (Exception ex)
             {

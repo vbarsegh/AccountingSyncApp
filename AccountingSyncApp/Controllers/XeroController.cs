@@ -48,7 +48,7 @@ namespace AccountingSyncApp.Controllers
         {
             if (customerDto == null)
                 return BadRequest("Customer data is required.");
-
+            Console.WriteLine("hasa");
             var response = await _xero.CreateCustomerAsync(customerDto);
             // Deserialize the created customer from Xero response
             var createdCustomer = JsonConvert.DeserializeObject<CustomerReadDto>(response);

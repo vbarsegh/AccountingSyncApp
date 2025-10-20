@@ -133,13 +133,14 @@ namespace Application_Layer.Services
                     },
                     // Optional: mark as customer
                     IsCustomer = true
+                    //////here about SyncedToXero,achqsi che lav petq chi esi((((
                 }
         }
             };
             request.AddJsonBody(body);
 
                 var response = await client.ExecuteAsync(request);
-            Console.WriteLine("\n\n\n"  + response);
+            Console.WriteLine("\n\n\n"  + "hasavXeroApimanager\n");
             if (!response.IsSuccessful)
                     throw new Exception($"Xero API error: {response.Content}");
 

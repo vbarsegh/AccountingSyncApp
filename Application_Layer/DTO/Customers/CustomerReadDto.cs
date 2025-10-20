@@ -28,5 +28,6 @@ namespace Application_Layer.DTO.Customers
 
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
+        public bool SyncedToXero { get; set; } = false;
     }
 }
