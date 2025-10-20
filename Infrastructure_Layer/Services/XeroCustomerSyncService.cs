@@ -28,23 +28,25 @@ namespace Infrastructure_Layer.Services
             _config= config;
         }
         //// Xero first, then DB
-        public async Task<Customer> SyncCreatedCustomerAsync(CustomerCreateDto dto)
+        public async Task<Customer> SyncCreatedCustomerAsync(ICustomerRepository customerRepository, CustomerCreateDto customerDto ,IXeroApiManager xeroApiManager)
         {
-            // 1. Create in Xero
-            var xeroResponse = await _xero.CreateCustomerAsync(dto);
-
-            // 2. Deserialize Xero response
-            var xeroCustomer = JsonConvert.DeserializeObject<CustomerReadDto>(xeroResponse);
-
+            //meke stugel karoxa lav mitq chi customerRepository-n u xeroApiManager-@ drsic stanaly,check anelllll!!!!
             // 3. Save to local DB
             var customer = new Customer
             {
-                Name = xeroCustomer.Name,
-                Email = xeroCustomer.Email,
-                XeroId = xeroCustomer.XeroId
+                Name = customerDto.Name,
+                Email = customerDto.Email,
+                Phone = customerDto.Phone,
+                Address = customerDto.Address,
+                XeroId = customerDto.XeroId ?? string.Empty,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                SyncedToXero = true //false
             };
-
-            await _customers.InsertAsync(customer);
+            customerDto.SyncedToXero = true;//erevi
+            await customerRepository.InsertAsync(customer);
+            //var customerReadDto = ...
+            await xeroApiManager.CreateCustomerAsync(customerDto);
             return customer;
         }
 
