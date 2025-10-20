@@ -44,7 +44,7 @@ namespace Application_Layer.Services
                 await _tokenRepository.SaveTokenAsync(newToken);
                 return newToken.AccessToken;
             }
-
+            
             return token.AccessToken;
         }
         // Helper: Get access token from DB
@@ -83,6 +83,7 @@ namespace Application_Layer.Services
             if (accessToken == null) throw new Exception("No Xero token found");
             // 2. Create a request to Xero API
             var client = new RestClient("https://api.xero.com/api.xro/2.0/Contacts");//Creates a client to call Xero API’s Contacts endpoint (customers).
+            ///api.xro/2.0/Contacts?where=IsCustomer==true    vor menak customernerin ta ,hetagayum vor quote ban anem karoxa filtrelu hamar petq ga!!!!
             var request = new RestRequest();
             request.Method = Method.Get;
             request.AddHeader("Authorization", $"Bearer {accessToken}");//Adds the access token in the HTTP header so Xero knows who you are.
@@ -114,23 +115,32 @@ namespace Application_Layer.Services
                 request.AddHeader("Accept", "application/json");
                 request.AddHeader("Content-Type", "application/json");
 
-                var body = new
+            var body = new
+            {
+                Contacts = new[]
+    {
+                new
                 {
                     Name = customer.Name,
                     EmailAddress = customer.Email,
                     Phones = new[]
                     {
-                        new { PhoneType = "Personal", PhoneNumber = customer.Phone }
+                        new { PhoneType = "DEFAULT", PhoneNumber = customer.Phone }
                     },
-                            Addresses = new[]
+                    Addresses = new[]
                     {
                         new { AddressType = "STREET", AddressLine1 = customer.Address }
-                    }
-                };
-                request.AddJsonBody(body);
+                    },
+                    // Optional: mark as customer
+                    IsCustomer = true
+                }
+        }
+            };
+            request.AddJsonBody(body);
 
                 var response = await client.ExecuteAsync(request);
-                if (!response.IsSuccessful)
+            Console.WriteLine("\n\n\n"  + response);
+            if (!response.IsSuccessful)
                     throw new Exception($"Xero API error: {response.Content}");
 
                 //Console.WriteLine("➡️ Xero request body: " + JsonConvert.SerializeObject(body));
@@ -140,37 +150,46 @@ namespace Application_Layer.Services
         //The difference is the URL and whether XeroId exists. That’s how Xero knows “create” vs “update.”
         public async Task<string> UpdateCustomerAsync(CustomerCreateDto customer)
         {
-            //var accessToken = await GetAccessTokenAsync();
             var accessToken = await GetValidAccessTokenAsync();
-            var client = new RestClient($"https://api.xero.com/api.xro/2.0/Contacts/{customer.XeroId}");
+
+            // Xero’s update endpoint still uses /Contacts, not /Contacts/{id}
+            var client = new RestClient("https://api.xero.com/api.xro/2.0/Contacts");
             var request = new RestRequest();
-            request.Method = Method.Put;
+            //Xero’s API is not a standard REST API.and that reason Xero uses POST for both create & update`
+            request.Method = Method.Post;
 
             request.AddHeader("Authorization", $"Bearer {accessToken}");
             request.AddHeader("xero-tenant-id", _config["XeroSettings:TenantId"]);
-
             request.AddHeader("Accept", "application/json");
             request.AddHeader("Content-Type", "application/json");
 
+            // ✅ Wrap inside "Contacts" array
             var body = new
             {
+                Contacts = new[]
+                {
+            new
+            {
+                ContactID = customer.XeroId,//ete menq include enq anum XeroId-n(ContactID) body-ii mej Xero-n sranova haskanum vor pti update ani vochte create
                 Name = customer.Name,
                 EmailAddress = customer.Email,
                 Phones = new[]
-                 {
+                {
                     new { PhoneType = "DEFAULT", PhoneNumber = customer.Phone }
                 },
-                        Addresses = new[]
-                 {
+                Addresses = new[]
+                {
                     new { AddressType = "STREET", AddressLine1 = customer.Address }
                 }
+            }
+        }
             };
+
             request.AddJsonBody(body);
 
             var response = await client.ExecuteAsync(request);
             if (!response.IsSuccessful)
                 throw new Exception($"Xero API error: {response.Content}");
-
             return response.Content;
         }
 
