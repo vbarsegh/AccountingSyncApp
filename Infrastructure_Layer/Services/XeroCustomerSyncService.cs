@@ -41,13 +41,22 @@ namespace Infrastructure_Layer.Services
                 XeroId = customerDto.XeroId ?? string.Empty,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                SyncedToXero = true //false
+                SyncedToXero = false //false
             };
-            customerDto.SyncedToXero = true;//erevi
+            //customerDto.SyncedToXero = true;//erevi
             await _customers.InsertAsync(customer);
             //var customerReadDto = ...
-            await _xero.CreateCustomerAsync(customerDto);
-            return customer;
+            // 2️⃣ Create in Xero
+            var xeroResponse = await _xero.CreateCustomerAsync(customerDto);
+            var createdXeroCustomer = JsonConvert.DeserializeObject<CustomerReadDto>(xeroResponse);
+
+            // 3️⃣ Update local DB with the Xero ID and set SyncedToXero = true
+            var dbCustomer = await _customers.GetByIdAsync(customer.Id);
+            dbCustomer.XeroId = createdXeroCustomer.XeroId;
+            dbCustomer.SyncedToXero = true;
+            await _customers.UpdateAsync(dbCustomer);
+
+            return dbCustomer;
         }
 
         public async Task<string> SyncUpdatedCustomerAsync(CustomerCreateDto dto)
@@ -76,50 +85,7 @@ namespace Infrastructure_Layer.Services
             // 6️⃣ Return Xero’s JSON response
             return xeroResponse;
         }
-        ////////////////////////////////////////////////////////
-        ///
-        // CREATE customer in DB, then Xero
-        public async Task<Customer> CreateCustomerAndSyncAsync(Customer customer)
-        {
-            // 1️⃣ Save in local DB
-            await _customers.InsertAsync(customer);
-
-            // 2️⃣ Prepare DTO for Xero
-            var dto = new CustomerCreateDto
-            {
-                Name = customer.Name,
-                Email = customer.Email,
-                Phone = customer.Phone,
-                Address = customer.Address
-            };
-
-            // 3️⃣ Create in Xero
-            var xeroResponse = await _xero.CreateCustomerAsync(dto);
-
-            // 4️⃣ Update local DB with XeroId returned
-            var createdXeroCustomer = JsonConvert.DeserializeObject<CustomerReadDto>(xeroResponse);
-            customer.XeroId = createdXeroCustomer.XeroId;
-            await _customers.UpdateAsync(customer);
-
-            return customer;
-        }
-        //DB first, then Xero (new)
-        public async Task<Customer> UpdateCustomerAndSyncAsync(Customer customer)
-        {
-            await _customers.UpdateAsync(customer);
-
-            var dto = new CustomerCreateDto
-            {
-                Name = customer.Name,
-                Email = customer.Email,
-                Phone = customer.Phone,
-                Address = customer.Address
-            };
-
-            await _xero.UpdateCustomerAsync(dto);
-
-            return customer;
-        }
+      
     }
 
 }

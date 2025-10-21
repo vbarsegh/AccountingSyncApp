@@ -84,7 +84,7 @@ namespace Application_Layer.Services
             // 2. Create a request to Xero API
             var client = new RestClient("https://api.xero.com/api.xro/2.0/Contacts");//Creates a client to call Xero API’s Contacts endpoint (customers).
             ///api.xro/2.0/Contacts?where=IsCustomer==true    vor menak customernerin ta ,hetagayum vor quote ban anem karoxa filtrelu hamar petq ga!!!!
-            var request = new RestRequest();
+            var request = new RestRequest("https://api.xero.com/api.xro/2.0/Contacts?where=ContactStatus==\"ACTIVE\"");
             request.Method = Method.Get;
             request.AddHeader("Authorization", $"Bearer {accessToken}");//Adds the access token in the HTTP header so Xero knows who you are.
             request.AddHeader("xero-tenant-id", _config["XeroSettings:TenantId"]);
@@ -142,9 +142,8 @@ namespace Application_Layer.Services
             Console.WriteLine("\n\n\n"  + "hasavXeroApimanager\n");
             if (!response.IsSuccessful)
                     throw new Exception($"Xero API error: {response.Content}");
+            //kam steeeeeeeeeeeeeeee
 
-                //Console.WriteLine("➡️ Xero request body: " + JsonConvert.SerializeObject(body));
-                //Console.WriteLine("⬅️ Xero raw response: " + response.Content);
                 return response.Content;
             }
         //The difference is the URL and whether XeroId exists. That’s how Xero knows “create” vs “update.”
