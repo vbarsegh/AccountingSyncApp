@@ -6,7 +6,7 @@ namespace Application_Layer.Interfaces
 {
     public interface IXeroCustomerSyncService
     {
-        Task<Customer> SyncCreatedCustomerAsync(ICustomerRepository customerRepository, CustomerCreateDto customerDto, IXeroApiManager xeroApiManager);
+        Task<Customer> SyncCreatedCustomerAsync(CustomerCreateDto customerDto);
         Task<string> SyncUpdatedCustomerAsync(CustomerCreateDto dto);
         Task<Customer> CreateCustomerAndSyncAsync(Customer customer);
         Task<Customer> UpdateCustomerAndSyncAsync(Customer customer);

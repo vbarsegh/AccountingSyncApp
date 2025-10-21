@@ -133,7 +133,6 @@ namespace Application_Layer.Services
                     },
                     // Optional: mark as customer
                     IsCustomer = true
-                    //////here about SyncedToXero,achqsi che lav petq chi esi((((
                 }
         }
             };

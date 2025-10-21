@@ -28,7 +28,7 @@ namespace Infrastructure_Layer.Services
             _config= config;
         }
         //// Xero first, then DB
-        public async Task<Customer> SyncCreatedCustomerAsync(ICustomerRepository customerRepository, CustomerCreateDto customerDto ,IXeroApiManager xeroApiManager)
+        public async Task<Customer> SyncCreatedCustomerAsync(CustomerCreateDto customerDto)
         {
             //meke stugel karoxa lav mitq chi customerRepository-n u xeroApiManager-@ drsic stanaly,check anelllll!!!!
             // 3. Save to local DB
@@ -44,9 +44,9 @@ namespace Infrastructure_Layer.Services
                 SyncedToXero = true //false
             };
             customerDto.SyncedToXero = true;//erevi
-            await customerRepository.InsertAsync(customer);
+            await _customers.InsertAsync(customer);
             //var customerReadDto = ...
-            await xeroApiManager.CreateCustomerAsync(customerDto);
+            await _xero.CreateCustomerAsync(customerDto);
             return customer;
         }
 

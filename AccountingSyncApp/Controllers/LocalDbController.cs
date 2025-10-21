@@ -12,16 +12,16 @@ namespace AccountingSyncApp.Controllers
     [Route("api/[controller]")]
     public class LocalDbController : ControllerBase
     {
-        private readonly ICustomerRepository _customerRepository;
+        //private readonly ICustomerRepository _customerRepository;
         private readonly IXeroCustomerSyncService _xeroCustomerSync;
-        private readonly IXeroApiManager _xeroApiManager;
+        //private readonly IXeroApiManager _xeroApiManager;
         private readonly ILogger<LocalDbController> _logger;
 
         public LocalDbController(ICustomerRepository customerRepository, IXeroApiManager xeroApiManager, IXeroCustomerSyncService xeroCustomerSync, ILogger<LocalDbController> logger)
         {
-            _customerRepository = customerRepository;
+            //_customerRepository = customerRepository;
             _xeroCustomerSync = xeroCustomerSync;
-            _xeroApiManager = xeroApiManager;
+            //_xeroApiManager = xeroApiManager;
             _logger = logger;
         }
 
@@ -36,7 +36,7 @@ namespace AccountingSyncApp.Controllers
 
                 _logger.LogInformation("📥 Creating new customer locally: {Name}", customerDto.Name);
 
-                await _xeroCustomerSync.SyncCreatedCustomerAsync(_customerRepository, customerDto, _xeroApiManager);
+                await _xeroCustomerSync.SyncCreatedCustomerAsync(customerDto);
                 return Ok(new
                 {
                     message = "Customer created successfully in local DB."
@@ -49,12 +49,12 @@ namespace AccountingSyncApp.Controllers
             }
         }
 
-        // ✅ GET: api/customers
-        [HttpGet]
-        public async Task<IActionResult> GetAllCustomers()
-        {
-            var customers = await _customerRepository.GetAllAsync();
-            return Ok(customers);
-        }
+        //// ✅ GET: api/customers
+        //[HttpGet]
+        //public async Task<IActionResult> GetAllCustomers()
+        //{
+        //    var customers = await  _customerRepository.GetAllAsync();
+        //    return Ok(customers);
+        //}
     }
 }
