@@ -59,6 +59,13 @@ namespace Infrastructure_Layer.Data
                 .Property(q => q.TotalAmount)
                 .HasColumnType("decimal(18,2)");
 
+            //customers can not have dublicates`
+            modelBuilder.Entity<Customer>()
+               .HasIndex(c => new { c.Name, c.Email, c.Phone, c.Address })
+               .IsUnique();
+
+            //invoices can not have dublicates
+
         }
 
     }

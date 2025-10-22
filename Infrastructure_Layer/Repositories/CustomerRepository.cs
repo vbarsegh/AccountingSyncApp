@@ -38,16 +38,40 @@ namespace Infrastructure_Layer.Repositories
 
         public async Task InsertAsync(Customer customer)
         {
-            customer.CreatedAt = DateTime.UtcNow;
-            _context.Customers.Add(customer);
-            await _context.SaveChangesAsync();
+            try
+            {
+                customer.CreatedAt = DateTime.UtcNow;
+                _context.Customers.Add(customer);
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                if (ex.InnerException != null &&
+                    ex.InnerException.Message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new Exception("A customer with the same Name, Email, Phone, and Address already exists.");
+                }
+                throw;
+            }
         }
 
         public async Task UpdateAsync(Customer customer)
         {
-            customer.UpdatedAt = DateTime.UtcNow;
-            _context.Customers.Update(customer);
-            await _context.SaveChangesAsync();
+            try
+            {
+                customer.UpdatedAt = DateTime.UtcNow;
+                _context.Customers.Update(customer);
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                if (ex.InnerException != null &&
+                    ex.InnerException.Message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new Exception("Updating this customer would create a duplicate entry.");
+                }
+                throw;
+            }
         }
         public async Task<Customer> GetByXeroIdAsync(string xeroId)
         {
