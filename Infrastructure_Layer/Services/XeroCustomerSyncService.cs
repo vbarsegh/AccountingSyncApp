@@ -6,6 +6,7 @@ using Domain_Layer.Models;
 using Infrastructure_Layer.Repositories;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using RestSharp;
 using System;
 using System.Collections.Generic;
@@ -48,11 +49,15 @@ namespace Infrastructure_Layer.Services
             //var customerReadDto = ...
             // 2️⃣ Create in Xero
             var xeroResponse = await _xero.CreateCustomerAsync(customerDto);
-            var createdXeroCustomer = JsonConvert.DeserializeObject<CustomerReadDto>(xeroResponse);
-
             // 3️⃣ Update local DB with the Xero ID and set SyncedToXero = true
             var dbCustomer = await _customers.GetByIdAsync(customer.Id);
-            dbCustomer.XeroId = createdXeroCustomer.XeroId;
+
+            var stringJson = await _xero.GetCustomerByEmailAsync(customer.Email);
+            var root = JsonConvert.DeserializeObject<JObject>(stringJson);
+
+            var contact = root["Contacts"]?.FirstOrDefault();
+            var customerReadDto = contact?.ToObject<CustomerReadDto>();
+            dbCustomer.XeroId = customerReadDto.XeroId;
             dbCustomer.SyncedToXero = true;
             await _customers.UpdateAsync(dbCustomer);
 

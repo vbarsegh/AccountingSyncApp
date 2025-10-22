@@ -77,21 +77,6 @@ namespace Infrastructure_Layer.Repositories
         {
             return await _context.Customers.FirstOrDefaultAsync(c => c.XeroId == xeroId);
         }
-
-        public async Task<Customer> GetByXeroIdAndSyncedToXeroAsync(CustomerReadDto dto)
-        {
-            //Console.WriteLine("\n\nKANCHVAAAV     ");
-            //if (await _context.Customers.FirstOrDefaultAsync(c => c.XeroId == dto.XeroId) == null)
-            //{
-            //    Console.WriteLine("de ste parza vor pti mtner");
-            //    Console.WriteLine("incha bool-@ -> " + dto.SyncedToXero);
-            //    Console.WriteLine(dto.UpdatedAt);
-            //    if (await _context.Customers.FirstOrDefaultAsync(c => c.UpdatedAt == dto.UpdatedAt) != null &&  dto.SyncedToXero == true)
-            //        return await _context.Customers.FirstOrDefaultAsync(c => c.UpdatedAt == dto.UpdatedAt);
-            //}
-            //Console.WriteLine("stexia helnum??");
-            return await _context.Customers.FirstOrDefaultAsync(c => c.XeroId == dto.XeroId);
-        }
         public async Task UpdateSyncedToXeroAsync(int id)
         {
             var customer = await _context.Customers.FindAsync(id);

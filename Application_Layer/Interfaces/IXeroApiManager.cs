@@ -10,6 +10,8 @@ namespace Application_Layer.Interfaces
         Task<string> GetValidAccessTokenAsync();
         Task<string> GetConnectionsAsync();
         // Customers
+        Task<string> GetCustomerByEmailAsync(string email);
+        Task<string> GetLatestCustomerAsync();
         Task<string> GetCustomersAsync();
         Task<string> CreateCustomerAsync(CustomerCreateDto customer);
         Task<string> UpdateCustomerAsync(CustomerCreateDto customer);

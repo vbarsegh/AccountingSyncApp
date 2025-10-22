@@ -48,13 +48,6 @@ namespace Application_Layer.Services
             return token.AccessToken;
         }
         // Helper: Get access token from DB
-        private async Task<string> GetAccessTokenAsync()
-        {
-            var token = await _tokenRepository.GetTokenAsync();
-            if (token == null) throw new Exception("No Xero token found.");
-            // TODO: refresh token if expired
-            return token.AccessToken;
-        }
 
         #region Customers
         /// ////////////////////
@@ -76,6 +69,46 @@ namespace Application_Layer.Services
             return response.Content; // JSON that includes your tenantId
         }
         ///////////////////////////////
+        public async Task<string> GetCustomerByEmailAsync(string email)
+        {
+            var accessToken = await GetValidAccessTokenAsync();
+            var client = new RestClient("https://api.xero.com/api.xro/2.0/Contacts");
+            var request = new RestRequest($"https://api.xero.com/api.xro/2.0/Contacts?where=EmailAddress==\"{email}\"");
+            request.Method = Method.Get;
+
+            request.AddHeader("Authorization", $"Bearer {accessToken}");
+            request.AddHeader("xero-tenant-id", _config["XeroSettings:TenantId"]);
+            request.AddHeader("Accept", "application/json");
+
+            var response = await client.ExecuteAsync(request);
+
+            if (!response.IsSuccessful)
+                throw new Exception($"Xero API error: {response.Content}");
+
+            return response.Content; // JSON with matching contact(s)
+        }
+
+        public async Task<string> GetLatestCustomerAsync()
+        {
+            var accessToken = await GetValidAccessTokenAsync();
+            if (accessToken == null) throw new Exception("No Xero token found");
+
+            // Sort by UpdatedDateUTC descending, take only the most recent
+            var client = new RestClient("https://api.xero.com/api.xro/2.0/Contacts?order=UpdatedDateUTC%20DESC");
+            var request = new RestRequest();
+            request.Method = Method.Get;
+
+            request.AddHeader("Authorization", $"Bearer {accessToken}");
+            request.AddHeader("xero-tenant-id", _config["XeroSettings:TenantId"]);
+            request.AddHeader("Accept", "application/json");
+
+            var response = await client.ExecuteAsync(request);
+            if (!response.IsSuccessful)
+                throw new Exception($"Xero API error: {response.Content}");
+
+            return response.Content;
+        }
+
         public async Task<string> GetCustomersAsync()
         {
             //var accessToken = await GetAccessTokenAsync();

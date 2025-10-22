@@ -20,10 +20,10 @@ namespace Application_Layer.DTO.Customers
         [JsonProperty("EmailAddress")]
         public string Email { get; set; } = string.Empty;
 
-        [JsonIgnore]
+        //[JsonIgnore]
         public string Phone { get; set; } = string.Empty;
 
-        [JsonIgnore]
+        //[JsonIgnore]
         public string Address { get; set; } = string.Empty;
 
         public DateTime CreatedAt { get; set; }

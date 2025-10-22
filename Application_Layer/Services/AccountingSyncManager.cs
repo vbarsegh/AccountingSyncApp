@@ -54,93 +54,107 @@ namespace Application_Layer.Services
         {
             try
             {
-                Console.WriteLine("hasavvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n\n\n");
-                _logger.LogInformation("🔄 Starting Xero → DB synchronization...");
-                // 1️⃣ Get all contacts from Xero API
-                var contactsJson = await _xeroApiManager.GetCustomersAsync();
-                // 2️⃣ Parse JSON and extract "Contacts" array
+                _logger.LogInformation("🔄 Starting Xero → DB synchronization (latest customer only)...");
+
+                // 1️⃣ Get the latest contact from Xero
+                var contactsJson = await _xeroApiManager.GetLatestCustomerAsync();
+
                 var root = JsonConvert.DeserializeObject<JObject>(contactsJson);
                 var contactsArray = root["Contacts"]?.ToObject<List<CustomerReadDto>>() ?? new List<CustomerReadDto>();
+                var latestDto = contactsArray.FirstOrDefault();
 
-                if (!contactsArray.Any())
+                if (latestDto == null)
                 {
-                    _logger.LogInformation("No contacts received from Xero.");
+                    _logger.LogInformation("No contacts found in Xero response.");
                     return;
                 }
 
-                // 3️⃣ Manually extract Phone and Address from nested JSON
-                foreach (var item in root["Contacts"])
-                {
-                    var xeroId = item["ContactID"]?.ToString();
-                    var dto = contactsArray.FirstOrDefault(c => c.XeroId == xeroId);
-                    if (dto == null) continue;
+                // 2️⃣ Extract full contact JSON for debugging
+                var contact = root["Contacts"]?.FirstOrDefault();
+                Console.WriteLine("FULL CONTACT JSON -> " + contact?.ToString(Formatting.Indented));
 
-                    dto.Phone = item["Phones"]?.FirstOrDefault()?["PhoneNumber"]?.ToString() ?? string.Empty;
-                    dto.Address = item["Addresses"]?.FirstOrDefault()?["AddressLine1"]?.ToString() ?? string.Empty;
-                }
-                // 4️⃣ Sync each contact into local DB
-                foreach (var dto in contactsArray)
+                // 3️⃣ Safely extract phone number
+                var phones = contact?["Phones"]?.ToObject<List<JObject>>();
+                if (phones != null && phones.Count > 0)
                 {
-                    var existing = await _customerRepository.GetByXeroIdAndSyncedToXeroAsync(dto);
-                   
-                    if (existing != null && existing.SyncedToXero == true)
-                        continue;
-                    //{
-                        if (existing == null)
-                        {
-                            ////doesn’t exist locally, insert it.
-                            // 🟢 New contact → Insert
-                            _logger.LogInformation($"🟢 Adding new contact: {dto.Name}");
+                    // Try to find the DEFAULT phone; fallback to any non-empty phone
+                    var defaultPhone = phones.FirstOrDefault(p =>
+                        string.Equals(p["PhoneType"]?.ToString(), "DEFAULT", StringComparison.OrdinalIgnoreCase) &&
+                        !string.IsNullOrWhiteSpace(p["PhoneNumber"]?.ToString()));
 
-                        var customer = new Customer()
-                        {
-                            XeroId = dto.XeroId,
-                            Name = dto.Name,
-                            Email = dto.Email,
-                            Phone = dto.Phone,
-                            Address = dto.Address,
-                            CreatedAt = DateTime.UtcNow,
-                            UpdatedAt = DateTime.UtcNow,
-                            SyncedToXero = true
-                        };
-                        await _customerRepository.InsertAsync(customer);
-                        ////DeleteAsync
-                        //var tempCustomer = await _customerRepository.GetByXeroIdAsync(customer.XeroId);
-                        //if (tempCustomer.SyncedToXero == false)
-                        //{
-                        //    Console.WriteLine("\n\n\nMTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVV\n\n\n\n\n\n");
-                        //    await _customerRepository.DeleteAsync(tempCustomer.Id - 1);
-                        //    await _customerRepository.UpdateSyncedToXeroAsync(tempCustomer.Id);
-                        //}
-                        //remove customer by id-1
+                    if (defaultPhone == null)
+                    {
+                        defaultPhone = phones.FirstOrDefault(p =>
+                            !string.IsNullOrWhiteSpace(p["PhoneNumber"]?.ToString()));
                     }
-                        else
-                        {
-                            // 🟡 Existing contact → Update
-                            ////already exists, update it.
-                            _logger.LogInformation($"🟡 Updating existing customer: {dto.Name}");
 
-                            existing.Name = dto.Name;
-                            existing.Email = dto.Email;
-                            existing.Phone = dto.Phone;
-                            existing.Address = dto.Address;
-                            existing.UpdatedAt = DateTime.UtcNow;
-                            existing.SyncedToXero = false;//check anel
-
-                            await _customerRepository.UpdateAsync(existing);
-                        }
-                    //}
+                    latestDto.Phone = defaultPhone?["PhoneNumber"]?.ToString() ?? string.Empty;
                 }
-                _logger.LogInformation("✅ Xero → DB synchronization completed successfully.");
-                }
-                catch (Exception ex)
+                else
                 {
-                    _logger.LogError(ex, "❌ Error during Xero → DB synchronization");
-                    throw;
+                    latestDto.Phone = string.Empty;
                 }
+
+                Console.WriteLine($"📞 Extracted phone: '{latestDto.Phone}'");
+
+                // 4️⃣ Safely extract address
+                var addresses = contact?["Addresses"]?.ToObject<List<JObject>>();
+                if (addresses != null && addresses.Count > 0)
+                {
+                    var street = addresses.FirstOrDefault(a =>
+                        string.Equals(a["AddressType"]?.ToString(), "STREET", StringComparison.OrdinalIgnoreCase));
+                    latestDto.Address = street?["AddressLine1"]?.ToString() ?? string.Empty;
+                }
+                else
+                {
+                    latestDto.Address = string.Empty;
+                }
+
+                Console.WriteLine($"🏠 Extracted address: '{latestDto.Address}'");
+
+                // 5️⃣ Check if the customer already exists in DB
+                var existing = await _customerRepository.GetByXeroIdAsync(latestDto.XeroId);
+
+                if (existing == null)
+                {
+                    _logger.LogInformation($"🟢 Adding new contact: {latestDto.Name}");
+
+                    var customer = new Customer
+                    {
+                        XeroId = latestDto.XeroId,
+                        Name = latestDto.Name,
+                        Email = latestDto.Email,
+                        Phone = latestDto.Phone,
+                        Address = latestDto.Address,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                        SyncedToXero = true
+                    };
+
+                    await _customerRepository.InsertAsync(customer);
+                }
+                else
+                {
+                    _logger.LogInformation($"🟡 Updating existing contact: {latestDto.Name}");
+
+                    existing.Name = latestDto.Name;
+                    existing.Email = latestDto.Email;
+                    existing.Phone = latestDto.Phone;
+                    existing.Address = latestDto.Address;
+                    existing.UpdatedAt = DateTime.UtcNow;
+                    existing.SyncedToXero = true;
+
+                    await _customerRepository.UpdateAsync(existing);
+                }
+
+                _logger.LogInformation("✅ Latest Xero contact synced successfully.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error during Xero → DB synchronization");
+                throw;
+            }
         }
 
-
-        
     }
 }

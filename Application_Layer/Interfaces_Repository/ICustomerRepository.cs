@@ -16,7 +16,6 @@ namespace Application_Layer.Interfaces_Repository
         Task InsertAsync(Customer customer);
         Task UpdateAsync(Customer customer);
         Task<Customer> GetByXeroIdAsync(string xeroId);
-        Task<Customer> GetByXeroIdAndSyncedToXeroAsync(CustomerReadDto dto);
         Task DeleteAsync(int id);
     }
 }
