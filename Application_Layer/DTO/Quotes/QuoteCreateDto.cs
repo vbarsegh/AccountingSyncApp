@@ -2,16 +2,16 @@
 {
     public class QuoteCreateDto
     {
-        public int CustomerId { get; set; } // For local DB
-        public string CustomerName { get; set; } = string.Empty; // For Xero
-        public DateTime Date { get; set; }
-        public List<LineItemDto> LineItems { get; set; } = new List<LineItemDto>();
-        public string? XeroId { get; set; } // For updates
-    }
-    public class LineItemDto
-    {
-        public string Description { get; set; } = string.Empty;
-        public decimal UnitAmount { get; set; }
-        public int Quantity { get; set; }
+        // Used when you create or update a quote in Xero.
+        // Contains only fields required by Xero API or user input.
+
+        public string? QuoteXeroId { get; set; }               // Xero QuoteID
+        public int CustomerId { get; set; }                    // Local DB Customer FK
+        public string CustomerXeroId { get; set; } = "";       // ContactID from Xero (Customer)
+        public string QuoteNumber { get; set; } = "";          // e.g. "QUO-001"
+        public string Description { get; set; } = "";          // Line item description
+        public decimal TotalAmount { get; set; }               // Total amount
+        public DateTime ExpiryDate { get; set; }               // Expiry date
+        public bool SyncedToXero { get; set; } = false;
     }
 }

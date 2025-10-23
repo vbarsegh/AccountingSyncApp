@@ -9,11 +9,13 @@ namespace Application_Layer.Interfaces_Repository
 {
     public interface IInvoiceRepository
     {
+        Task<Invoice> GetByIdAsync(int id);
+
+        Task<Invoice> GetByXeroIdAsync(string xeroId);
         Task<IEnumerable<Invoice>> GetAllAsync();
         Task InsertAsync(Invoice invoice);
         Task UpdateAsync(Invoice invoice);
-        Task<Invoice?> GetByXeroIdAsync(int id);
-        Task<IEnumerable<Invoice>> GetByCustomerIdAsync(int customerId);
+        Task DeleteAsync(int id);
 
     }
 }

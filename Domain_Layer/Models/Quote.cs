@@ -1,23 +1,28 @@
-﻿using System;
-
-namespace Domain_Layer.Models
+﻿namespace Domain_Layer.Models
 {
     public class Quote
     {
-        public int Id { get; set; } // Primary key
+        public int Id { get; set; }
+
+        public string? XeroId { get; set; } // QuoteID from Xero
         public string QuoteNumber { get; set; } = string.Empty;
-        public DateTime QuoteDate { get; set; }
-        public decimal TotalAmount { get; set; }
 
-        // Optional: Xero/QuickBooks IDs for 2-way sync
-        public string? XeroId { get; set; }
-        public string? QuickBooksId { get; set; }
-        public string CustomerName { get; set; }
+        // Relation to Customer
+        public int CustomerId { get; set; } // FK to local DB
+        public string? CustomerXeroId { get; set; } // ContactID from Xero
 
-        // Foreign key to Customer
-        public int CustomerId { get; set; }
+        public string Description { get; set; } = string.Empty;
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+        public decimal TotalAmount { get; set; } // total amount of quote
+        public DateTime ExpiryDate { get; set; } // date until quote is valid
+
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+
+        public bool SyncedToXero { get; set; }
+
+        // Navigation property
+        public Customer? Customer { get; set; }
+        // Allows easy access to the related customer object.
     }
 }

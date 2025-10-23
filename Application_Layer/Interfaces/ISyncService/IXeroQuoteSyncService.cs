@@ -7,7 +7,5 @@ namespace Application_Layer.Interfaces
     {
         Task<Quote> SyncCreatedQuoteAsync(QuoteCreateDto dto);
         Task<string> SyncUpdatedQuoteAsync(QuoteCreateDto dto);
-        Task<Quote> CreateQuoteAndSyncAsync(Quote quote);
-        Task<Quote> UpdateQuoteAndSyncAsync(Quote quote);
     }
 }

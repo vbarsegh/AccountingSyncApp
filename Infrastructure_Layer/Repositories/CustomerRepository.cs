@@ -30,6 +30,16 @@ namespace Infrastructure_Layer.Repositories
 
             return customer;
         }
+        public async Task<Customer?> GetByDetailsAsync(string name, string email, string phone, string address)
+        {
+            return await _context.Customers
+                .FirstOrDefaultAsync(c =>
+                    c.Name == name &&
+                    c.Email == email &&
+                    c.Phone == phone &&
+                    c.Address == address);
+        }
+
 
         public async Task<IEnumerable<Customer>> GetAllAsync()
         {

@@ -1,25 +1,27 @@
-﻿using System;
-
-namespace Domain_Layer.Models
+﻿namespace Domain_Layer.Models
 {
     public class Invoice
     {
-        public int Id { get; set; } // Primary key
+        public int Id { get; set; }
+
+        public string? XeroId { get; set; } // InvoiceID from Xero
         public string InvoiceNumber { get; set; } = string.Empty;
-        public DateTime InvoiceDate { get; set; }
-        public decimal TotalAmount { get; set; }
 
-        // Optional: Xero/QuickBooks IDs for 2-way sync
-        public string? XeroId { get; set; }
-        public string? QuickBooksId { get; set; }
+        // Relation to Customer
+        public int CustomerId { get; set; } // FK to local DB
+        public string? CustomerXeroId { get; set; } // ContactID from Xero
 
-        // Foreign key to Customer
-        public int CustomerId { get; set; }
+        public string Description { get; set; } = string.Empty;
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-        //For a 2-way sync, you often need to know when a record was last updated to avoid overwriting newer changes.
-        //UpdatedAt helps determine whether to push updates to Xero/QuickBooks or pull updates from them.
+        public decimal TotalAmount { get; set; } // total amount of invoice
+        public DateTime DueDate { get; set; }
+
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+
+        public bool SyncedToXero { get; set; }
+
+        // Navigation property
+        public Customer? Customer { get; set; }//It allows you to easily access the full customer object from an invoice without manually joining tables.
     }
 }
-

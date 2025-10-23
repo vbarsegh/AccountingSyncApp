@@ -69,6 +69,23 @@ namespace Application_Layer.Services
             return response.Content; // JSON that includes your tenantId
         }
         ///////////////////////////////
+        public async Task<string> GetCustomerByXeroIdAsync(string xeroId)
+        {
+            var accessToken = await GetValidAccessTokenAsync();
+            var client = new RestClient($"https://api.xero.com/api.xro/2.0/Contacts/{xeroId}");
+            var request = new RestRequest();
+            request.Method = Method.Get;
+
+            request.AddHeader("Authorization", $"Bearer {accessToken}");
+            request.AddHeader("xero-tenant-id", _config["XeroSettings:TenantId"]);
+            request.AddHeader("Accept", "application/json");
+
+            var response = await client.ExecuteAsync(request);
+            if (!response.IsSuccessful)
+                throw new Exception($"Failed to get contact by ID: {response.Content}");
+
+            return response.Content;
+        }
         public async Task<string> GetCustomerByEmailAsync(string email)
         {
             var accessToken = await GetValidAccessTokenAsync();
@@ -227,11 +244,11 @@ namespace Application_Layer.Services
 
         #endregion
 
+        // ✅ FIXED AND CLEANED INVOICE SECTION
         #region Invoices
 
         public async Task<string> GetInvoicesAsync()
         {
-            //var accessToken = await GetAccessTokenAsync();
             var accessToken = await GetValidAccessTokenAsync();
             var client = new RestClient("https://api.xero.com/api.xro/2.0/Invoices");
             var request = new RestRequest();
@@ -239,7 +256,6 @@ namespace Application_Layer.Services
 
             request.AddHeader("Authorization", $"Bearer {accessToken}");
             request.AddHeader("xero-tenant-id", _config["XeroSettings:TenantId"]);
-
             request.AddHeader("Accept", "application/json");
 
             var response = await client.ExecuteAsync(request);
@@ -249,11 +265,8 @@ namespace Application_Layer.Services
             return response.Content;
         }
 
-        #region Invoices
-
         public async Task<string> CreateInvoiceAsync(InvoiceCreateDto invoice)
         {
-            //var accessToken = await GetAccessTokenAsync();
             var accessToken = await GetValidAccessTokenAsync();
             var client = new RestClient("https://api.xero.com/api.xro/2.0/Invoices");
             var request = new RestRequest();
@@ -261,31 +274,28 @@ namespace Application_Layer.Services
 
             request.AddHeader("Authorization", $"Bearer {accessToken}");
             request.AddHeader("xero-tenant-id", _config["XeroSettings:TenantId"]);
-
-            request.AddHeader("Accept", "application/json");
             request.AddHeader("Content-Type", "application/json");
 
-            // Xero requires an object named "Invoices" containing a list
             var body = new
             {
                 Invoices = new[]
                 {
-            new
-            {
-                Type = "ACCREC", // Accounts Receivable (customer invoice)
-                Contact = new { ContactID = invoice.ContactId },
-                LineItems = new[]
-                {
-                    new { Description = invoice.Description, Quantity = 1, UnitAmount = invoice.Amount }
-                },
-                DueDate = invoice.DueDate.ToString("yyyy-MM-dd"),
-                Status = "AUTHORISED"
-            }
-        }
+                    new
+                    {
+                        Type = "ACCREC",
+                        Contact = new { ContactID = invoice.CustomerXeroId },
+                        Date = DateTime.UtcNow,
+                        DueDate = invoice.DueDate,
+                        LineItems = new[]
+                        {
+                            new { Description = invoice.Description, Quantity = 1, UnitAmount = invoice.TotalAmount }
+                        },
+                        InvoiceNumber = invoice.InvoiceNumber
+                    }
+                }
             };
 
             request.AddJsonBody(body);
-
             var response = await client.ExecuteAsync(request);
             if (!response.IsSuccessful)
                 throw new Exception($"Xero API error: {response.Content}");
@@ -295,18 +305,16 @@ namespace Application_Layer.Services
 
         public async Task<string> UpdateInvoiceAsync(InvoiceCreateDto invoice)
         {
-            if (string.IsNullOrEmpty(invoice.XeroId))
+            if (string.IsNullOrEmpty(invoice.InvoiceXeroId))
                 throw new ArgumentException("XeroId is required to update an invoice.");
 
-            //var accessToken = await GetAccessTokenAsync();
             var accessToken = await GetValidAccessTokenAsync();
-            var client = new RestClient($"https://api.xero.com/api.xro/2.0/Invoices/{invoice.XeroId}");
+            var client = new RestClient($"https://api.xero.com/api.xro/2.0/Invoices/{invoice.InvoiceXeroId}");
             var request = new RestRequest();
-            request.Method = Method.Put; // Xero also accepts PUT for updates
+            request.Method = Method.Post; // Xero accepts POST for updates
 
             request.AddHeader("Authorization", $"Bearer {accessToken}");
             request.AddHeader("xero-tenant-id", _config["XeroSettings:TenantId"]);
-
             request.AddHeader("Accept", "application/json");
             request.AddHeader("Content-Type", "application/json");
 
@@ -314,21 +322,20 @@ namespace Application_Layer.Services
             {
                 Invoices = new[]
                 {
-            new
-            {
-                InvoiceID = invoice.XeroId,
-                LineItems = new[]
-                {
-                    new { Description = invoice.Description, Quantity = 1, UnitAmount = invoice.Amount }
-                },
-                DueDate = invoice.DueDate.ToString("yyyy-MM-dd"),
-                Status = "AUTHORISED"
-            }
-        }
+                    new
+                    {
+                        InvoiceID = invoice.InvoiceXeroId,
+                        LineItems = new[]
+                        {
+                            new { Description = invoice.Description, Quantity = 1, UnitAmount = invoice.TotalAmount }
+                        },
+                        DueDate = invoice.DueDate.ToString("yyyy-MM-dd"),
+                        Status = "AUTHORISED"
+                    }
+                }
             };
 
             request.AddJsonBody(body);
-
             var response = await client.ExecuteAsync(request);
             if (!response.IsSuccessful)
                 throw new Exception($"Xero API error: {response.Content}");
@@ -339,20 +346,18 @@ namespace Application_Layer.Services
         #endregion
 
 
-        #endregion
+        // ✅ FIXED AND CLEANED QUOTE SECTION
         #region Quotes
 
-        // GET all quotes from Xero
         public async Task<string> GetQuotesAsync()
         {
-            //var accessToken = await GetAccessTokenAsync();
             var accessToken = await GetValidAccessTokenAsync();
             var client = new RestClient("https://api.xero.com/api.xro/2.0/Quotes");
             var request = new RestRequest();
             request.Method = Method.Get;
+
             request.AddHeader("Authorization", $"Bearer {accessToken}");
             request.AddHeader("xero-tenant-id", _config["XeroSettings:TenantId"]);
-
             request.AddHeader("Accept", "application/json");
 
             var response = await client.ExecuteAsync(request);
@@ -362,25 +367,35 @@ namespace Application_Layer.Services
             return response.Content;
         }
 
-        // CREATE a quote in Xero
         public async Task<string> CreateQuoteAsync(QuoteCreateDto quote)
         {
-            //var accessToken = await GetAccessTokenAsync();
             var accessToken = await GetValidAccessTokenAsync();
             var client = new RestClient("https://api.xero.com/api.xro/2.0/Quotes");
             var request = new RestRequest();
             request.Method = Method.Post;
+
             request.AddHeader("Authorization", $"Bearer {accessToken}");
             request.AddHeader("xero-tenant-id", _config["XeroSettings:TenantId"]);
-
             request.AddHeader("Accept", "application/json");
             request.AddHeader("Content-Type", "application/json");
 
             var body = new
             {
-                CustomerName = quote.CustomerName,
-                Date = quote.Date,
-                LineItems = quote.LineItems
+                Quotes = new[]
+                {
+                    new
+                    {
+                        Contact = new { ContactID = quote.CustomerXeroId },
+                        Date = DateTime.UtcNow,
+                        ExpiryDate = quote.ExpiryDate,
+                        LineItems = new[]
+                        {
+                            new { Description = quote.Description, Quantity = 1, UnitAmount = quote.TotalAmount }
+                        },
+                        Reference = quote.Description,
+                        Status = "DRAFT"
+                    }
+                }
             };
 
             request.AddJsonBody(body);
@@ -391,28 +406,36 @@ namespace Application_Layer.Services
             return response.Content;
         }
 
-        // UPDATE a quote in Xero
         public async Task<string> UpdateQuoteAsync(QuoteCreateDto quote)
         {
-            if (string.IsNullOrEmpty(quote.XeroId))
+            if (string.IsNullOrEmpty(quote.QuoteXeroId))
                 throw new ArgumentException("XeroId is required to update a quote.");
 
-            //var accessToken = await GetAccessTokenAsync();
             var accessToken = await GetValidAccessTokenAsync();
-            var client = new RestClient($"https://api.xero.com/api.xro/2.0/Quotes/{quote.XeroId}");
+            var client = new RestClient($"https://api.xero.com/api.xro/2.0/Quotes/{quote.QuoteXeroId}");
             var request = new RestRequest();
-            request.Method = Method.Put; // Xero requires PUT for updates
+            request.Method = Method.Post;
+
             request.AddHeader("Authorization", $"Bearer {accessToken}");
             request.AddHeader("xero-tenant-id", _config["XeroSettings:TenantId"]);
-
             request.AddHeader("Accept", "application/json");
             request.AddHeader("Content-Type", "application/json");
 
             var body = new
             {
-                CustomerName = quote.CustomerName,
-                Date = quote.Date,
-                LineItems = quote.LineItems
+                Quotes = new[]
+                {
+                    new
+                    {
+                        QuoteID = quote.QuoteXeroId,
+                        LineItems = new[]
+                        {
+                            new { Description = quote.Description, Quantity = 1, UnitAmount = quote.TotalAmount }
+                        },
+                        ExpiryDate = quote.ExpiryDate,
+                        Status = "SENT"
+                    }
+                }
             };
 
             request.AddJsonBody(body);
@@ -424,7 +447,6 @@ namespace Application_Layer.Services
         }
 
         #endregion
-
 
     }
 }

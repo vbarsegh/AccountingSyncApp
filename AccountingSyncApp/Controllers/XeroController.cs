@@ -1,5 +1,7 @@
 ﻿using Application.DTOs;
 using Application_Layer.DTO.Customers;
+using Application_Layer.DTO.Invoices;
+using Application_Layer.DTO.Quotes;
 using Application_Layer.Interfaces;
 using Application_Layer.Services;
 using Azure;

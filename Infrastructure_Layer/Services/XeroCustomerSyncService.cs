@@ -69,13 +69,22 @@ namespace Infrastructure_Layer.Services
             // 1️⃣ Send update to Xero
             var xeroResponse = await _xero.UpdateCustomerAsync(dto);
 
-            // 2️⃣ Parse Xero’s response
-            var updatedXeroCustomer = JsonConvert.DeserializeObject<CustomerReadDto>(xeroResponse);
+            // 2️⃣ Parse the response properly
+            var root = JsonConvert.DeserializeObject<JObject>(xeroResponse);
+            var contact = root["Contacts"]?.FirstOrDefault();
+            if (contact == null)
+                throw new Exception("No contact data returned from Xero.");
 
-            // 3️⃣ Find the same customer in local DB by XeroId
+            var updatedXeroCustomer = contact.ToObject<CustomerReadDto>();
+
+            // ✅ Ensure XeroId is not lost
+            if (string.IsNullOrWhiteSpace(updatedXeroCustomer.XeroId))
+                updatedXeroCustomer.XeroId = dto.XeroId ?? string.Empty;
+
+            // 3️⃣ Find existing local customer by XeroId
             var localCustomer = await _customers.GetByXeroIdAsync(updatedXeroCustomer.XeroId);
             if (localCustomer == null)
-                throw new Exception("Customer not found in local database.");
+                throw new Exception($"Customer with XeroId {updatedXeroCustomer.XeroId} not found in local DB.");
 
             // 4️⃣ Update local fields
             localCustomer.Name = updatedXeroCustomer.Name;
@@ -83,6 +92,7 @@ namespace Infrastructure_Layer.Services
             localCustomer.Phone = updatedXeroCustomer.Phone;
             localCustomer.Address = updatedXeroCustomer.Address;
             localCustomer.UpdatedAt = DateTime.UtcNow;
+            localCustomer.SyncedToXero = true;
 
             // 5️⃣ Save changes
             await _customers.UpdateAsync(localCustomer);
@@ -90,7 +100,7 @@ namespace Infrastructure_Layer.Services
             // 6️⃣ Return Xero’s JSON response
             return xeroResponse;
         }
-      
+
     }
 
 }

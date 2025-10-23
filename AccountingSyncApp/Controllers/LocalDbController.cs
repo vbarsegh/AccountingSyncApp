@@ -48,6 +48,34 @@ namespace AccountingSyncApp.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
+        // ✅ PUT: api/localdb/update
+        [HttpPut("update")]
+        public async Task<IActionResult> UpdateCustomer([FromBody] CustomerCreateDto customerDto)
+        {
+            try
+            {
+                if (customerDto == null)
+                    return BadRequest("Customer data is required.");
+
+                if (string.IsNullOrWhiteSpace(customerDto.XeroId))
+                    return BadRequest("XeroId is required to update a customer.");
+
+                _logger.LogInformation("✏️ Updating customer in Xero and local DB: {Name}", customerDto.Name);
+
+                var result = await _xeroCustomerSync.SyncUpdatedCustomerAsync(customerDto);
+
+                return Ok(new
+                {
+                    message = "Customer updated successfully in Xero and local DB.",
+                    xeroResponse = result
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error while updating customer.");
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
 
         //// ✅ GET: api/customers
         //[HttpGet]

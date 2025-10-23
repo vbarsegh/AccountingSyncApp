@@ -1,14 +1,8 @@
-﻿using Application.DTOs;
-using Application_Layer.Interfaces;
+﻿using Application.DTOs;                // InvoiceCreateDto
+using Application_Layer.Interfaces;    // IXeroApiManager, IXeroInvoiceSyncService
 using Application_Layer.Interfaces_Repository;
 using Domain_Layer.Models;
-using Infrastructure_Layer.Repositories;
-using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 
 namespace Infrastructure_Layer.Services
 {
@@ -23,87 +17,98 @@ namespace Infrastructure_Layer.Services
             _invoices = invoices;
         }
 
+        /// <summary>
+        /// DB -> Xero (create). Create local invoice first (SyncedToXero=false),
+        /// call Xero, read InvoiceID, update local (set XeroId + SyncedToXero=true).
+        /// Returns the updated local Invoice.
+        /// </summary>
         public async Task<Invoice> SyncCreatedInvoiceAsync(InvoiceCreateDto dto)
         {
-            var xeroResponse = await _xero.CreateInvoiceAsync(dto);
-            var xeroInvoice = JsonConvert.DeserializeObject<InvoiceReadDto>(xeroResponse);
-
+            // 1) Save locally first (pending sync)
             var invoice = new Invoice
             {
-                CustomerId = dto.CustomerId,
-                TotalAmount = xeroInvoice.Total,
-                XeroId = xeroInvoice.InvoiceID,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                CustomerId     = dto.CustomerId,
+                CustomerXeroId = dto.CustomerXeroId, // ContactID for Xero calls (optional to store)
+                Description    = dto.Description,
+                TotalAmount    = dto.TotalAmount,
+                DueDate        = dto.DueDate,
+                InvoiceNumber  = dto.InvoiceNumber ?? string.Empty,
+                CreatedAt      = DateTime.UtcNow,
+                UpdatedAt      = DateTime.UtcNow,
+                SyncedToXero   = false
             };
 
             await _invoices.InsertAsync(invoice);
+
+            // 2) Create in Xero
+            var xeroJson = await _xero.CreateInvoiceAsync(dto);
+
+            // 3) Parse Xero response to get Xero InvoiceID and any canonical values
+            var root = JObject.Parse(xeroJson);
+            var created = root["Invoices"]?.FirstOrDefault();
+            var xeroId = created?["InvoiceID"]?.ToString();
+
+            if (!string.IsNullOrWhiteSpace(xeroId))
+                invoice.XeroId = xeroId;
+
+            // (Optional) normalize number/amount from Xero if present
+            invoice.InvoiceNumber = created?["InvoiceNumber"]?.ToString() ?? invoice.InvoiceNumber;
+
+            if (decimal.TryParse(created?["Total"]?.ToString(), out var totalFromXero))
+                invoice.TotalAmount = totalFromXero;
+
+            // 4) Mark synced
+            invoice.SyncedToXero = true;
+            invoice.UpdatedAt = DateTime.UtcNow;
+            await _invoices.UpdateAsync(invoice);
+
             return invoice;
         }
 
+        /// <summary>
+        /// DB/Xero -> update. Sends update to Xero, then refreshes local record
+        /// from the Xero response and keeps SyncedToXero=true.
+        /// Returns raw Xero JSON if you want to bubble it up.
+        /// </summary>
         public async Task<string> SyncUpdatedInvoiceAsync(InvoiceCreateDto dto)
         {
-            var xeroResponse = await _xero.UpdateInvoiceAsync(dto);
-            var updatedXeroInvoice = JsonConvert.DeserializeObject<InvoiceReadDto>(xeroResponse);
+            // Require XeroId to update
+            if (string.IsNullOrWhiteSpace(dto.InvoiceXeroId))
+                throw new ArgumentException("XeroId is required to update an invoice.");
 
-            var localInvoice = await _invoices.GetByXeroIdAsync(int.Parse(updatedXeroInvoice.InvoiceID));
-            if (localInvoice == null) throw new Exception("Invoice not found in local database.");
+            // 1) Send update to Xero
+            var xeroJson = await _xero.UpdateInvoiceAsync(dto);
 
-            localInvoice.TotalAmount = updatedXeroInvoice.Total;
-            localInvoice.UpdatedAt = DateTime.UtcNow;
+            // 2) Parse response
+            var root = JObject.Parse(xeroJson);
+            var updated = root["Invoices"]?.FirstOrDefault();
 
-            await _invoices.UpdateAsync(localInvoice);
-            return xeroResponse;
-        }
+            var xeroId = updated?["InvoiceID"]?.ToString() ?? dto.InvoiceXeroId;
 
+            // 3) Find local by XeroId
+            var local = await _invoices.GetByXeroIdAsync(xeroId);
+            if (local == null)
+                throw new Exception("Local invoice not found by XeroId.");
 
+            // 4) Update local from either DTO or canonical Xero response
+            local.Description   = updated?["LineItems"]?.FirstOrDefault()?["Description"]?.ToString() ?? dto.Description;
+            local.InvoiceNumber = updated?["InvoiceNumber"]?.ToString() ?? local.InvoiceNumber;
 
-        // Create invoice in DB, then Xero
-        public async Task<Invoice> CreateInvoiceAndSyncAsync(Invoice invoice)
-        {
-            // 1️⃣ Save in local DB
-            await _invoices.InsertAsync(invoice);
+            if (decimal.TryParse(updated?["Total"]?.ToString(), out var total))
+                local.TotalAmount = total;
+            else
+                local.TotalAmount = dto.TotalAmount;
 
-            // 2️⃣ Prepare DTO for Xero
-            var dto = new InvoiceCreateDto
-            {
-                CustomerId = invoice.CustomerId,
-                DueDate = invoice.CreatedAt,
-                //LineItems = invoice.LineItems, // assuming compatible
-                XeroId = invoice.XeroId
-            };
+            if (DateTime.TryParse(updated?["DueDate"]?.ToString(), out var due))
+                local.DueDate = due;
+            else
+                local.DueDate = dto.DueDate;
 
-            // 3️⃣ Create in Xero
-            var xeroResponse = await _xero.CreateInvoiceAsync(dto);
+            local.SyncedToXero = true;
+            local.UpdatedAt = DateTime.UtcNow;
 
-            // 4️⃣ Optional: update local invoice with XeroId returned
-            var createdXeroInvoice = JsonConvert.DeserializeObject<InvoiceReadDto>(xeroResponse);
-            invoice.XeroId = createdXeroInvoice.XeroId;
-            await _invoices.UpdateAsync(invoice);
-
-            return invoice;
-        }
-
-        // Update invoice in DB, then Xero
-        public async Task<Invoice> UpdateInvoiceAndSyncAsync(Invoice invoice)
-        {
-            // 1️⃣ Update local DB
-            await _invoices.UpdateAsync(invoice);
-
-            // 2️⃣ Prepare DTO
-            var dto = new InvoiceCreateDto
-            {
-                CustomerId = invoice.CustomerId,
-                DueDate = invoice.UpdatedAt,
-                //LineItems = invoice.LineItems,
-                XeroId = invoice.XeroId
-            };
-
-            // 3️⃣ Update in Xero
-            await _xero.UpdateInvoiceAsync(dto);
-
-            return invoice;
+            await _invoices.UpdateAsync(local);
+            return xeroJson;
         }
     }
-
 }

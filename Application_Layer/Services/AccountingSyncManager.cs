@@ -50,19 +50,17 @@ namespace Application_Layer.Services
         //When does SyncFromXeroAsync happen?Automatically when Xero sends a webhook → your controller receives it and calls the sync.
         //what happens->Reads all customers from the local DB. If XeroId is empty → it’s new → create in Xero; otherwise → update Xero record.
         //The idea: whenever a webhook from Xero arrives (for example, a new invoice was created in Xero), you can call this method.
-        public async Task SyncFromXeroAsync()////Its job is to pull updated data from Xero and sync it into your database.
+        public async Task SyncFromXeroAsync(string xeroId)////Its job is to pull updated data from Xero and sync it into your database.
         {
             try
             {
+                Console.WriteLine("xeroId->" + xeroId);
                 _logger.LogInformation("🔄 Starting Xero → DB synchronization (latest customer only)...");
-
-                // 1️⃣ Get the latest contact from Xero
-                var contactsJson = await _xeroApiManager.GetLatestCustomerAsync();
-
+                var contactsJson = await _xeroApiManager.GetCustomerByXeroIdAsync(xeroId);
                 var root = JsonConvert.DeserializeObject<JObject>(contactsJson);
                 var contactsArray = root["Contacts"]?.ToObject<List<CustomerReadDto>>() ?? new List<CustomerReadDto>();
                 var latestDto = contactsArray.FirstOrDefault();
-
+                Console.WriteLine("Name = " + latestDto.Name);
                 if (latestDto == null)
                 {
                     _logger.LogInformation("No contacts found in Xero response.");
@@ -114,7 +112,16 @@ namespace Application_Layer.Services
 
                 // 5️⃣ Check if the customer already exists in DB
                 var existing = await _customerRepository.GetByXeroIdAsync(latestDto.XeroId);
-
+                if (existing == null)
+                {
+                    existing = await _customerRepository.GetByDetailsAsync(
+                        latestDto.Name, latestDto.Email, latestDto.Phone, latestDto.Address);
+                    //esi nra hamara,vortev erb demic mer db-um customer enq avelacnum,et customery aranc XeroId-ia add arvum mer db-um
+                    //heto vor webhook-ov galis enq methodi katarmany,await _customerRepository.GetByXeroIdAsync(latestDto.XeroId); esi null a
+                    //veradardznelu vortev es logikayic heto enq mer db-um avelacrac customeri XeroId-n tarmacnum datarkic->Xero mej inch XeroId drvaca dranov
+                    //u vor null a talis mer db-um add enq anum nuyn tvyalnerov customer inchy hangecnuma exception-i,isk vor zusapenq dranic mihatel check enq anum
+                    //sax filedery arac XeroId-ii,u ete gtnuma tenc field parzapes tarmacnum enq et customeri tvyalnery vochte insert anum.
+                }
                 if (existing == null)
                 {
                     _logger.LogInformation($"🟢 Adding new contact: {latestDto.Name}");

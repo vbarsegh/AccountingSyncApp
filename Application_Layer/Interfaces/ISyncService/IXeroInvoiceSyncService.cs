@@ -7,7 +7,7 @@ namespace Application_Layer.Interfaces
     {
         Task<Invoice> SyncCreatedInvoiceAsync(InvoiceCreateDto dto);
         Task<string> SyncUpdatedInvoiceAsync(InvoiceCreateDto dto);
-        Task<Invoice> CreateInvoiceAndSyncAsync(Invoice invoice);
-        Task<Invoice> UpdateInvoiceAndSyncAsync(Invoice invoice);
+
+
     }
 }

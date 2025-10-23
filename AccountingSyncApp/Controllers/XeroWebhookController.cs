@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
 using System.ComponentModel;
 using System.Security.Cryptography;
 using System.Text;
@@ -66,8 +67,14 @@ public class XeroWebhookController : ControllerBase
             return Ok();
         }
 
+        ////
+        // ✅ Parse the webhook payload
+        var json = JObject.Parse(payload);
+        var resourceId = json["events"]?.FirstOrDefault()?["resourceId"]?.ToString();
+        ////resourceId im imacac XeroId-n a.
+
         // 4️⃣ For real webhook events → sync data
-        await _syncManager.SyncFromXeroAsync();
+        await _syncManager.SyncFromXeroAsync(resourceId);
         _logger.LogInformation("SyncFromXeroAsync executed successfully.");
 
         return Ok();

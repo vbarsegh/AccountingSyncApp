@@ -11,6 +11,7 @@ namespace Application_Layer.Interfaces_Repository
     public interface ICustomerRepository
     {
         Task<Customer> GetByIdAsync(int id);
+        Task<Customer?> GetByDetailsAsync(string name, string email, string phone, string address);
         Task UpdateSyncedToXeroAsync(int id);
         Task<IEnumerable<Customer>> GetAllAsync();
         Task InsertAsync(Customer customer);

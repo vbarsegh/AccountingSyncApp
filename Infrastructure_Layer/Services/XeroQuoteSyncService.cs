@@ -1,14 +1,8 @@
-﻿using Application.DTOs;
-using Application_Layer.Interfaces;
+﻿using Application.DTOs;                // QuoteCreateDto
+using Application_Layer.Interfaces;    // IXeroApiManager, IXeroQuoteSyncService
 using Application_Layer.Interfaces_Repository;
 using Domain_Layer.Models;
-using Infrastructure_Layer.Repositories;
-using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 
 namespace Infrastructure_Layer.Services
 {
@@ -23,78 +17,100 @@ namespace Infrastructure_Layer.Services
             _quotes = quotes;
         }
 
+        /// <summary>
+        /// DB -> Xero (create). Create local quote first (SyncedToXero=false),
+        /// call Xero, read QuoteID, update local (set XeroId + SyncedToXero=true).
+        /// Returns the updated local Quote.
+        /// </summary>
         public async Task<Quote> SyncCreatedQuoteAsync(QuoteCreateDto dto)
         {
-            var xeroResponse = await _xero.CreateQuoteAsync(dto);
-            var xeroQuote = JsonConvert.DeserializeObject<QuoteReadDto>(xeroResponse);
-
+            // 1) Save locally first (pending sync)
             var quote = new Quote
             {
-                CustomerId = dto.CustomerId,
-                TotalAmount = xeroQuote.TotalAmount,
-                XeroId = xeroQuote.XeroId,
-                QuoteDate = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                CustomerId     = dto.CustomerId,
+                CustomerXeroId = dto.CustomerXeroId,
+                Description    = dto.Description,
+                TotalAmount    = dto.TotalAmount,
+                ExpiryDate     = dto.ExpiryDate,
+                QuoteNumber    = dto.QuoteNumber ?? string.Empty,
+                CreatedAt      = DateTime.UtcNow,
+                UpdatedAt      = DateTime.UtcNow,
+                SyncedToXero   = false
             };
 
             await _quotes.InsertAsync(quote);
+
+            // 2) Create in Xero
+            var xeroJson = await _xero.CreateQuoteAsync(dto);
+
+            // 3) Parse Xero response to get Xero QuoteID and canonical fields
+            var root = JObject.Parse(xeroJson);
+            var created = root["Quotes"]?.FirstOrDefault();
+            var xeroId = created?["QuoteID"]?.ToString();
+
+            if (!string.IsNullOrWhiteSpace(xeroId))
+                quote.XeroId = xeroId;
+
+            quote.QuoteNumber = created?["QuoteNumber"]?.ToString() ?? quote.QuoteNumber;
+
+            if (decimal.TryParse(created?["Total"]?.ToString(), out var totalFromXero))
+                quote.TotalAmount = totalFromXero;
+
+            if (DateTime.TryParse(created?["ExpiryDate"]?.ToString(), out var exp))
+                quote.ExpiryDate = exp;
+
+            // 4) Mark synced
+            quote.SyncedToXero = true;
+            quote.UpdatedAt = DateTime.UtcNow;
+            await _quotes.UpdateAsync(quote);
+
             return quote;
         }
 
+        /// <summary>
+        /// DB/Xero -> update. Sends update to Xero, then refreshes local record
+        /// from the Xero response and keeps SyncedToXero=true.
+        /// Returns raw Xero JSON if you want to bubble it up.
+        /// </summary>
         public async Task<string> SyncUpdatedQuoteAsync(QuoteCreateDto dto)
         {
-            var xeroResponse = await _xero.UpdateQuoteAsync(dto);
-            var updatedXeroQuote = JsonConvert.DeserializeObject<QuoteReadDto>(xeroResponse);
+            if (string.IsNullOrWhiteSpace(dto.QuoteXeroId))
+                throw new ArgumentException("XeroId is required to update a quote.");
 
-            var localQuote = await _quotes.GetByXeroIdAsync(int.Parse(updatedXeroQuote.XeroId));
-            if (localQuote == null) throw new Exception("Quote not found in local database.");
+            // 1) Send update to Xero
+            var xeroJson = await _xero.UpdateQuoteAsync(dto);
 
-            localQuote.TotalAmount = updatedXeroQuote.TotalAmount;
-            localQuote.UpdatedAt = DateTime.UtcNow;
+            // 2) Parse response
+            var root = JObject.Parse(xeroJson);
+            var updated = root["Quotes"]?.FirstOrDefault();
 
-            await _quotes.UpdateAsync(localQuote);
-            return xeroResponse;
-        }
+            var xeroId = updated?["QuoteID"]?.ToString() ?? dto.QuoteXeroId;
 
+            // 3) Find local by XeroId
+            var local = await _quotes.GetByXeroIdAsync(xeroId);
+            if (local == null)
+                throw new Exception("Local quote not found by XeroId.");
 
-        // Create quote in DB, then Xero
-        public async Task<Quote> CreateQuoteAndSyncAsync(Quote quote)
-        {
-            await _quotes.InsertAsync(quote);
+            // 4) Update local from DTO or canonical Xero response
+            local.Description = updated?["LineItems"]?.FirstOrDefault()?["Description"]?.ToString() ?? dto.Description;
 
-            var dto = new QuoteCreateDto
-            {
-                CustomerName = quote.CustomerName,
-                Date = quote.CreatedAt,
-                //LineItems = quote.LineItems,
-                XeroId = quote.XeroId
-            };
+            local.QuoteNumber = updated?["QuoteNumber"]?.ToString() ?? local.QuoteNumber;
 
-            var xeroResponse = await _xero.CreateQuoteAsync(dto);
-            var createdXeroQuote = JsonConvert.DeserializeObject<QuoteReadDto>(xeroResponse);
-            quote.XeroId = createdXeroQuote.XeroId;
+            if (decimal.TryParse(updated?["Total"]?.ToString(), out var total))
+                local.TotalAmount = total;
+            else
+                local.TotalAmount = dto.TotalAmount;
 
-            await _quotes.UpdateAsync(quote);
-            return quote;
-        }
+            if (DateTime.TryParse(updated?["ExpiryDate"]?.ToString(), out var exp))
+                local.ExpiryDate = exp;
+            else
+                local.ExpiryDate = dto.ExpiryDate;
 
-        // Update quote in DB, then Xero
-        public async Task<Quote> UpdateQuoteAndSyncAsync(Quote quote)
-        {
-            await _quotes.UpdateAsync(quote);
+            local.SyncedToXero = true;
+            local.UpdatedAt = DateTime.UtcNow;
 
-            var dto = new QuoteCreateDto
-            {
-                CustomerName = quote.CustomerName,
-                Date = quote.UpdatedAt,
-                //LineItems = quote.LineItems,
-                XeroId = quote.XeroId
-            };
-
-            await _xero.UpdateQuoteAsync(dto);
-            return quote;
+            await _quotes.UpdateAsync(local);
+            return xeroJson;
         }
     }
-
 }

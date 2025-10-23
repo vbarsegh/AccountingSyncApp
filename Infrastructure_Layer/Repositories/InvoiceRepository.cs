@@ -14,33 +14,37 @@ namespace Infrastructure_Layer.Repositories
             _context = context;
         }
 
-        public async Task<IEnumerable<Invoice>> GetAllAsync()
+        public async Task<Invoice> GetByIdAsync(int id) =>
+            await _context.Invoices.FindAsync(id) ?? throw new Exception("Invoice not found");
+        public async Task<Invoice> GetByXeroIdAsync(string xeroId)
         {
-            return await _context.Invoices.ToListAsync();
+            return await _context.Invoices
+                .FirstOrDefaultAsync(i => i.XeroId == xeroId);
         }
+
+
+        public async Task<IEnumerable<Invoice>> GetAllAsync() =>
+            await _context.Invoices.ToListAsync();
 
         public async Task InsertAsync(Invoice invoice)
         {
+            invoice.CreatedAt = DateTime.UtcNow;
             _context.Invoices.Add(invoice);
             await _context.SaveChangesAsync();
         }
 
         public async Task UpdateAsync(Invoice invoice)
         {
+            invoice.UpdatedAt = DateTime.UtcNow;
             _context.Invoices.Update(invoice);
             await _context.SaveChangesAsync();
         }
 
-        public async Task<Invoice?> GetByXeroIdAsync(int id)
+        public async Task DeleteAsync(int id)
         {
-            return await _context.Invoices.FindAsync(id);
-        }
-
-        public async Task<IEnumerable<Invoice>> GetByCustomerIdAsync(int customerId)
-        {
-            return await _context.Invoices
-                .Where(i => i.CustomerId == customerId)
-                .ToListAsync();
+            var invoice = await GetByIdAsync(id);
+            _context.Invoices.Remove(invoice);
+            await _context.SaveChangesAsync();
         }
     }
 }

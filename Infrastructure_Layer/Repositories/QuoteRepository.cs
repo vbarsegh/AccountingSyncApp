@@ -14,33 +14,35 @@ namespace Infrastructure_Layer.Repositories
             _context = context;
         }
 
-        public async Task<IEnumerable<Quote>> GetAllAsync()
+        public async Task<Quote> GetByIdAsync(int id) =>
+            await _context.Quotes.FindAsync(id) ?? throw new Exception("Quote not found");
+        public async Task<Quote> GetByXeroIdAsync(string xeroId)
         {
-            return await _context.Quotes.ToListAsync();
+            return await _context.Quotes.FirstOrDefaultAsync(q => q.XeroId == xeroId);
         }
+
+        public async Task<IEnumerable<Quote>> GetAllAsync() =>
+            await _context.Quotes.ToListAsync();
 
         public async Task InsertAsync(Quote quote)
         {
+            quote.CreatedAt = DateTime.UtcNow;
             _context.Quotes.Add(quote);
             await _context.SaveChangesAsync();
         }
 
         public async Task UpdateAsync(Quote quote)
         {
+            quote.UpdatedAt = DateTime.UtcNow;
             _context.Quotes.Update(quote);
             await _context.SaveChangesAsync();
         }
 
-        public async Task<Quote?> GetByXeroIdAsync(int id)
+        public async Task DeleteAsync(int id)
         {
-            return await _context.Quotes.FindAsync(id);
-        }
-
-        public async Task<IEnumerable<Quote>> GetByCustomerIdAsync(int customerId)
-        {
-            return await _context.Quotes
-                .Where(q => q.CustomerId == customerId)
-                .ToListAsync();
+            var quote = await GetByIdAsync(id);
+            _context.Quotes.Remove(quote);
+            await _context.SaveChangesAsync();
         }
     }
 }
