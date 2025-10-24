@@ -11,7 +11,7 @@ namespace Application_Layer.Interfaces_Repository
     {
         Task<Invoice> GetByIdAsync(int id);
 
-        Task<Invoice> GetByXeroIdAsync(string xeroId);
+        Task<Invoice> GetByInvoiceXeroIdAsync(string InvoicexeroId);
         Task<IEnumerable<Invoice>> GetAllAsync();
         Task InsertAsync(Invoice invoice);
         Task UpdateAsync(Invoice invoice);

@@ -66,16 +66,46 @@ public class XeroWebhookController : ControllerBase
             _logger.LogInformation("Received 'Intent to receive' handshake from Xero ✅");
             return Ok();
         }
-
+        Console.WriteLine("Minchev ste galis a pastroen");
         ////
         // ✅ Parse the webhook payload
         var json = JObject.Parse(payload);
-        var resourceId = json["events"]?.FirstOrDefault()?["resourceId"]?.ToString();
-        ////resourceId im imacac XeroId-n a.
+        var events = json["events"]?.ToObject<List<JObject>>();
 
-        // 4️⃣ For real webhook events → sync data
-        await _syncManager.SyncFromXeroAsync(resourceId);
-        _logger.LogInformation("SyncFromXeroAsync executed successfully.");
+        if (events == null || events.Count == 0)
+        {
+            _logger.LogWarning("No events found in Xero webhook payload.");
+            return Ok();
+        }
+
+        foreach (var evt in events)
+        {
+            var resourceId = evt["resourceId"]?.ToString();
+            var eventCategory = evt["eventCategory"]?.ToString();
+            var eventType = evt["eventType"]?.ToString();
+
+            _logger.LogInformation("🔔 Xero event: {Category} - {Type} (ID={Id})",
+                eventCategory, eventType, resourceId);
+
+            switch (eventCategory?.ToUpperInvariant())
+            {
+                case "CONTACT":
+                    await _syncManager.SyncCustomersFromXeroAsync(resourceId);
+                    break;
+
+                case "INVOICE":
+                    await _syncManager.SyncInvoicesFromXeroAsync(resourceId);
+                    break;
+
+                //case "QUOTE":
+                //    await _syncManager.SyncQuotesFromXeroAsync(resourceId);
+                //    break;
+
+                default:
+                    _logger.LogInformation("⚠️ Ignored unknown eventCategory: {eventCategory}", eventCategory);
+                    break;
+            }
+        }
 
         return Ok();
     }

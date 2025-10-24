@@ -18,6 +18,7 @@ namespace Application_Layer.Interfaces
         Task<string> UpdateCustomerAsync(CustomerCreateDto customer);
 
         // Invoices
+        Task<string> GetInvoiceByXeroIdAsync(string invoiceXeroId);
         Task<string> GetInvoicesAsync();
         Task<string> CreateInvoiceAsync(InvoiceCreateDto invoice);
         Task<string> UpdateInvoiceAsync(InvoiceCreateDto invoice);

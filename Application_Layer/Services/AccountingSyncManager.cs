@@ -1,4 +1,6 @@
-﻿ using Application_Layer.DTO.Customers;
+﻿using Application.DTOs;
+using Application_Layer.DTO.Customers;
+using Application_Layer.DTO.Invoices;
 using Application_Layer.Interfaces;
 using Application_Layer.Interfaces_Repository;
 using Domain_Layer.Models;
@@ -13,7 +15,7 @@ namespace Application_Layer.Services
     /// Xero, and (later) QuickBooks. AccountingSyncManager acts as the “brain” of your entire synchronization system.
     //It doesn’t talk to APIs or the database directly — it coordinates other services that do.
     /// </summary>      
-    public class AccountingSyncManager
+    public class AccountingSyncManager : IAccountingSyncManager
     {
         private readonly IXeroApiManager _xeroApiManager;
         private readonly IXeroCustomerSyncService _xeroCustomerSync;
@@ -50,13 +52,13 @@ namespace Application_Layer.Services
         //When does SyncFromXeroAsync happen?Automatically when Xero sends a webhook → your controller receives it and calls the sync.
         //what happens->Reads all customers from the local DB. If XeroId is empty → it’s new → create in Xero; otherwise → update Xero record.
         //The idea: whenever a webhook from Xero arrives (for example, a new invoice was created in Xero), you can call this method.
-        public async Task SyncFromXeroAsync(string xeroId)////Its job is to pull updated data from Xero and sync it into your database.
+        public async Task SyncCustomersFromXeroAsync(string CustomerXeroId)////Its job is to pull updated data from Xero and sync it into your database.
         {
             try
             {
-                Console.WriteLine("xeroId->" + xeroId);
+                Console.WriteLine("xeroId->" + CustomerXeroId);
                 _logger.LogInformation("🔄 Starting Xero → DB synchronization (latest customer only)...");
-                var contactsJson = await _xeroApiManager.GetCustomerByXeroIdAsync(xeroId);
+                var contactsJson = await _xeroApiManager.GetCustomerByXeroIdAsync(CustomerXeroId);
                 var root = JsonConvert.DeserializeObject<JObject>(contactsJson);
                 var contactsArray = root["Contacts"]?.ToObject<List<CustomerReadDto>>() ?? new List<CustomerReadDto>();
                 var latestDto = contactsArray.FirstOrDefault();
@@ -161,6 +163,102 @@ namespace Application_Layer.Services
                 _logger.LogError(ex, "❌ Error during Xero → DB synchronization");
                 throw;
             }
+        }
+        //part of Invoices
+        public async Task SyncInvoicesFromXeroAsync(string invoiceXeroId)
+        {
+            try
+            {
+                _logger.LogInformation("🔄 Starting Xero → DB synchronization for invoice {invoiceXeroId}", invoiceXeroId);
+
+                // 1️⃣ Get full invoice JSON from Xero
+                var invoicesJson = await _xeroApiManager.GetInvoiceByXeroIdAsync(invoiceXeroId);
+                var root = JsonConvert.DeserializeObject<JObject>(invoicesJson);
+                var invoicesArray = root["Invoices"]?.ToObject<List<InvoiceReadDto>>() ?? new List<InvoiceReadDto>();
+                var latestDto = invoicesArray.FirstOrDefault();
+
+                if (latestDto == null)
+                {
+                    _logger.LogWarning("No invoice found in Xero response for ID: {invoiceXeroId}", invoiceXeroId);
+                    return;
+                }
+
+                // ✅ Extract customer (ContactID) from nested Contact object
+                string customerXeroId = latestDto.Contact?.ContactID ?? string.Empty;
+
+                _logger.LogInformation("✅ Received invoice #{InvoiceNumber} for customer {CustomerXeroId}",
+                    latestDto.InvoiceNumber, customerXeroId);
+
+                // 2️⃣ Find the local customer by their XeroId
+                var customer = await _customerRepository.GetByXeroIdAsync(customerXeroId);
+                if (customer == null)
+                {
+                    _logger.LogWarning("⚠️ No matching local customer for XeroId={CustomerXeroId}. Skipping invoice sync.", customerXeroId);
+                    return;
+                }
+
+                // 3️⃣ Check if invoice already exists in local DB
+                var existingInvoice = await _invoiceRepository.GetByInvoiceXeroIdAsync(latestDto.InvoiceXeroId);
+
+                if (existingInvoice == null)
+                {
+                    _logger.LogInformation("🟢 Adding new invoice: {InvoiceNumber}", latestDto.InvoiceNumber);
+
+                    var invoice = new Invoice
+                    {
+                        XeroId = latestDto.InvoiceXeroId, // matches your Domain model property
+                        CustomerId = customer.Id,
+                        CustomerXeroId = customerXeroId,
+                        InvoiceNumber = latestDto.InvoiceNumber,
+                        Description = latestDto.Description,
+                        TotalAmount = latestDto.TotalAmount,
+                        DueDate = latestDto.DueDate,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                        SyncedToXero = true
+                    };
+
+                    await _invoiceRepository.InsertAsync(invoice);
+                }
+                else
+                {
+                    _logger.LogInformation("🟡 Updating existing invoice: {InvoiceNumber}", latestDto.InvoiceNumber);
+
+                    existingInvoice.CustomerId = customer.Id;
+                    existingInvoice.CustomerXeroId = customerXeroId;
+                    existingInvoice.InvoiceNumber = latestDto.InvoiceNumber;
+                    existingInvoice.Description = latestDto.Description;
+                    existingInvoice.TotalAmount = latestDto.TotalAmount;
+                    existingInvoice.DueDate = latestDto.DueDate;
+                    existingInvoice.UpdatedAt = DateTime.UtcNow;
+                    existingInvoice.SyncedToXero = true;
+
+                    await _invoiceRepository.UpdateAsync(existingInvoice);
+                }
+
+                _logger.LogInformation("✅ Invoice synced successfully (#{InvoiceNumber}).", latestDto.InvoiceNumber);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error during Xero → DB invoice synchronization");
+                throw;
+            }
+        }
+
+
+        public async Task<bool> CheckInvoiceDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(InvoiceCreateDto invoice)
+        {
+            Console.WriteLine("hasanq check methodin");
+            var customer = await _customerRepository.GetByIdAsync(invoice.CustomerId);
+
+            if (customer == null)
+                throw new Exception($"Customer with ID {invoice.CustomerId} not found in local DB.");
+
+            if (customer.XeroId != invoice.CustomerXeroId)
+                throw new Exception($"Mismatch: local customer (ID={invoice.CustomerId}) has XeroId={customer.XeroId}, " +
+                                    $"but request provided {invoice.CustomerXeroId}.");
+
+            return true;
         }
 
     }

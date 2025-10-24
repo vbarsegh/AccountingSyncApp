@@ -16,10 +16,11 @@ namespace Infrastructure_Layer.Repositories
 
         public async Task<Invoice> GetByIdAsync(int id) =>
             await _context.Invoices.FindAsync(id) ?? throw new Exception("Invoice not found");
-        public async Task<Invoice> GetByXeroIdAsync(string xeroId)
+
+        public async Task<Invoice> GetByInvoiceXeroIdAsync(string InvoicexeroId)
         {
             return await _context.Invoices
-                .FirstOrDefaultAsync(i => i.XeroId == xeroId);
+                .FirstOrDefaultAsync(i => i.XeroId == InvoicexeroId);
         }
 
 

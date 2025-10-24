@@ -29,8 +29,9 @@ builder.Services.AddScoped<IQuoteRepository, QuoteRepository>();
 
 // 3. Register services
 // ----------------------
-builder.Services.AddScoped<IXeroAuthService, XeroAuthService>();
+builder.Services.AddScoped<IAccountingSyncManager, AccountingSyncManager>();
 builder.Services.AddScoped<IXeroApiManager, XeroApiManager>();
+builder.Services.AddScoped<IXeroAuthService, XeroAuthService>();
 builder.Services.AddScoped<IXeroCustomerSyncService, XeroCustomerSyncService>();
 builder.Services.AddScoped<IXeroInvoiceSyncService, XeroInvoiceSyncService>();
 builder.Services.AddScoped<IXeroQuoteSyncService, XeroQuoteSyncService>();

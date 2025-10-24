@@ -1,4 +1,5 @@
-﻿using Application_Layer.DTO.Customers;
+﻿using Application.DTOs;
+using Application_Layer.DTO.Customers;
 using Application_Layer.Interfaces_Repository;
 using Dapper;
 using Domain_Layer.Models;
@@ -87,6 +88,7 @@ namespace Infrastructure_Layer.Repositories
         {
             return await _context.Customers.FirstOrDefaultAsync(c => c.XeroId == xeroId);
         }
+
         public async Task UpdateSyncedToXeroAsync(int id)
         {
             var customer = await _context.Customers.FindAsync(id);
@@ -106,6 +108,16 @@ namespace Infrastructure_Layer.Repositories
             await _context.SaveChangesAsync();
         }
 
+        //////////////////
+        //public async Task checkIdAndXeroId(InvoiceCreateDto invoice)
+        //{
+        //    var customer = await _context.Customers.FindAsync(invoice.CustomerId);
+        //    if (customer == null)
+        //        throw new Exception("Customer not found");
+        //    if (customer.XeroId != invoice.CustomerXeroId)
+        //        throw new Exception($"Mismatch: local customer (ID={invoice.CustomerId}) has XeroId={customer.XeroId}, " +
+        //                            $"but request provided {invoice.CustomerXeroId}.");
+        //}
 
     }
 }

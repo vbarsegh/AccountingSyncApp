@@ -39,34 +39,33 @@ namespace Infrastructure_Layer.Data
             modelBuilder.Entity<Quote>()
                 .HasKey(q => q.Id);
 
+            // ✅ Proper foreign key relationship for Invoice → Customer
             modelBuilder.Entity<Invoice>()
-            .HasOne<Customer>()       // Invoice belongs to Customer
-            .WithMany()               // Customer can have many invoices
-            .HasForeignKey(i => i.CustomerId)
-            .OnDelete(DeleteBehavior.Cascade);
+                .HasOne(i => i.Customer)
+                .WithMany()                   // You can replace WithMany(c => c.Invoices) if you add ICollection<Invoice> in Customer
+                .HasForeignKey(i => i.CustomerId)
+                .OnDelete(DeleteBehavior.Cascade);
 
+            // ✅ Proper foreign key relationship for Quote → Customer
             modelBuilder.Entity<Quote>()
-            .HasOne<Customer>()       // Quote belongs to Customer
-            .WithMany()               // Customer can have many quotes
-            .HasForeignKey(q => q.CustomerId)
-            .OnDelete(DeleteBehavior.Cascade);
-            
-            modelBuilder.Entity<Invoice>()//
+                .HasOne(q => q.Customer)
+                .WithMany()
+                .HasForeignKey(q => q.CustomerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Precision for amounts
+            modelBuilder.Entity<Invoice>()
                 .Property(i => i.TotalAmount)
                 .HasColumnType("decimal(18,2)");
 
-            modelBuilder.Entity<Quote>()//  
+            modelBuilder.Entity<Quote>()
                 .Property(q => q.TotalAmount)
                 .HasColumnType("decimal(18,2)");
 
-            //customers can not have dublicates`
+            // ✅ Prevent duplicate customers
             modelBuilder.Entity<Customer>()
-               .HasIndex(c => new { c.Name, c.Email, c.Phone, c.Address })
-               .IsUnique();
-
-            //invoices can not have dublicates
-
+                .HasIndex(c => new { c.Name, c.Email, c.Phone, c.Address })
+                .IsUnique();
         }
-
     }
 }

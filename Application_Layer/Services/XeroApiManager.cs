@@ -247,6 +247,24 @@ namespace Application_Layer.Services
         // ✅ FIXED AND CLEANED INVOICE SECTION
         #region Invoices
 
+        public async Task<string> GetInvoiceByXeroIdAsync(string invoiceXeroId)
+        {
+            var accessToken = await GetValidAccessTokenAsync();
+            var client = new RestClient($"https://api.xero.com/api.xro/2.0/Invoices/{invoiceXeroId}");
+            var request = new RestRequest();
+            request.Method = Method.Get;
+
+            request.AddHeader("Authorization", $"Bearer {accessToken}");
+            request.AddHeader("xero-tenant-id", _config["XeroSettings:TenantId"]);
+            request.AddHeader("Accept", "application/json");
+
+            var response = await client.ExecuteAsync(request);
+            if (!response.IsSuccessful)
+                throw new Exception($"Failed to get invoice by ID: {response.Content}");
+
+            return response.Content;
+        }
+
         public async Task<string> GetInvoicesAsync()
         {
             var accessToken = await GetValidAccessTokenAsync();

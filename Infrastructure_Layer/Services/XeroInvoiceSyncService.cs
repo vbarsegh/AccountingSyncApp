@@ -86,7 +86,7 @@ namespace Infrastructure_Layer.Services
             var xeroId = updated?["InvoiceID"]?.ToString() ?? dto.InvoiceXeroId;
 
             // 3) Find local by XeroId
-            var local = await _invoices.GetByXeroIdAsync(xeroId);
+            var local = await _invoices.GetByInvoiceXeroIdAsync(xeroId);
             if (local == null)
                 throw new Exception("Local invoice not found by XeroId.");
 
