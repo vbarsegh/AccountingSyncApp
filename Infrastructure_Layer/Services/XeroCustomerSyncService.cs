@@ -49,7 +49,7 @@ namespace Infrastructure_Layer.Services
             //var customerReadDto = ...
             // 2️⃣ Create in Xero
             var xeroResponse = await _xero.CreateCustomerAsync(customerDto);
-            // 3️⃣ Update local DB with the Xero ID and set SyncedToXero = true
+            // 3️⃣ Update local DB with the Xero ID and set SyncedToXero = true, vor en dublicatio xndiry chunenanq
             var dbCustomer = await _customers.GetByIdAsync(customer.Id);
 
             var stringJson = await _xero.GetCustomerByEmailAsync(customer.Email);
@@ -66,40 +66,40 @@ namespace Infrastructure_Layer.Services
 
         public async Task<string> SyncUpdatedCustomerAsync(CustomerCreateDto dto)
         {
-            // 1️⃣ Send update to Xero
-            var xeroResponse = await _xero.UpdateCustomerAsync(dto);
-
-            // 2️⃣ Parse the response properly
-            var root = JsonConvert.DeserializeObject<JObject>(xeroResponse);
-            var contact = root["Contacts"]?.FirstOrDefault();
-            if (contact == null)
-                throw new Exception("No contact data returned from Xero.");
-
-            var updatedXeroCustomer = contact.ToObject<CustomerReadDto>();
-
-            // ✅ Ensure XeroId is not lost
-            if (string.IsNullOrWhiteSpace(updatedXeroCustomer.XeroId))
-                updatedXeroCustomer.XeroId = dto.XeroId ?? string.Empty;
-
-            // 3️⃣ Find existing local customer by XeroId
-            var localCustomer = await _customers.GetByXeroIdAsync(updatedXeroCustomer.XeroId);
+            // 1️⃣ Update local DB first (our source of truth)
+            var localCustomer = await _customers.GetByXeroIdAsync(dto.XeroId);
             if (localCustomer == null)
-                throw new Exception($"Customer with XeroId {updatedXeroCustomer.XeroId} not found in local DB.");
+                throw new Exception($"Customer with XeroId {dto.XeroId} not found in local DB.");
 
-            // 4️⃣ Update local fields
-            localCustomer.Name = updatedXeroCustomer.Name;
-            localCustomer.Email = updatedXeroCustomer.Email;
-            localCustomer.Phone = updatedXeroCustomer.Phone;
-            localCustomer.Address = updatedXeroCustomer.Address;
+            localCustomer.Name = dto.Name;
+            localCustomer.Email = dto.Email;
+            localCustomer.Phone = dto.Phone;
+            localCustomer.Address = dto.Address;
             localCustomer.UpdatedAt = DateTime.UtcNow;
-            localCustomer.SyncedToXero = true;
+            localCustomer.SyncedToXero = false; // temporary mark until confirmed synced
 
-            // 5️⃣ Save changes
             await _customers.UpdateAsync(localCustomer);
 
-            // 6️⃣ Return Xero’s JSON response
+            // 2️⃣ Try update in Xero
+            string xeroResponse;
+            try
+            {
+                xeroResponse = await _xero.UpdateCustomerAsync(dto);
+                localCustomer.SyncedToXero = true; // ✅ success
+                await _customers.UpdateAsync(localCustomer);
+            }
+            catch (Exception ex)
+            {
+                // ❌ If Xero fails — revert the Synced flag
+                localCustomer.SyncedToXero = false;
+                await _customers.UpdateAsync(localCustomer);
+                throw new Exception($"Failed to sync to Xero: {ex.Message}");
+            }
+
+            // 3️⃣ Return confirmation
             return xeroResponse;
         }
+
 
     }
 
