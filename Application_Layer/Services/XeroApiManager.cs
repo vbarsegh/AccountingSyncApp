@@ -321,45 +321,66 @@ namespace Application_Layer.Services
             return response.Content;
         }
 
-        public async Task<string> UpdateInvoiceAsync(InvoiceCreateDto invoice)
+        public async Task<string> UpdateInvoiceAsync(InvoiceCreateDto dto)
         {
-            if (string.IsNullOrEmpty(invoice.InvoiceXeroId))
-                throw new ArgumentException("XeroId is required to update an invoice.");
+            // ✅ Ensure we have the Xero InvoiceID
+            if (string.IsNullOrWhiteSpace(dto.InvoiceXeroId))
+                throw new ArgumentException("InvoiceXeroId is required to update an invoice.");
 
             var accessToken = await GetValidAccessTokenAsync();
-            var client = new RestClient($"https://api.xero.com/api.xro/2.0/Invoices/{invoice.InvoiceXeroId}");
+            var client = new RestClient($"https://api.xero.com/api.xro/2.0/Invoices/{dto.InvoiceXeroId}");
             var request = new RestRequest();
-            request.Method = Method.Post; // Xero accepts POST for updates
-
+            request.Method = Method.Post; // ✅ Xero expects POST for updates
             request.AddHeader("Authorization", $"Bearer {accessToken}");
             request.AddHeader("xero-tenant-id", _config["XeroSettings:TenantId"]);
-            request.AddHeader("Accept", "application/json");
             request.AddHeader("Content-Type", "application/json");
 
-            var body = new
+            // ✅ Properly structured JSON for Xero
+            var invoicePayload = new
             {
                 Invoices = new[]
                 {
+            new
+            {
+                InvoiceID = dto.InvoiceXeroId,
+                Type = "ACCREC",
+                Contact = new { ContactID = dto.CustomerXeroId },
+                Date = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                DueDate = dto.DueDate.ToString("yyyy-MM-dd"),
+                LineAmountTypes = "Exclusive",
+                LineItems = new[]
+                {
                     new
                     {
-                        InvoiceID = invoice.InvoiceXeroId,
-                        LineItems = new[]
-                        {
-                            new { Description = invoice.Description, Quantity = 1, UnitAmount = invoice.TotalAmount }
-                        },
-                        DueDate = invoice.DueDate.ToString("yyyy-MM-dd"),
-                        Status = "AUTHORISED"
+                        Description = dto.Description,
+                        Quantity = 1,
+                        UnitAmount = dto.TotalAmount,
+                        AccountCode = "200",   // ✅ REQUIRED
+                        TaxType = "NONE"        // ✅ REQUIRED
                     }
-                }
+                },
+                InvoiceNumber = dto.InvoiceNumber
+            }
+        }
             };
 
-            request.AddJsonBody(body);
-            var response = await client.ExecuteAsync(request);
-            if (!response.IsSuccessful)
-                throw new Exception($"Xero API error: {response.Content}");
+            request.AddJsonBody(invoicePayload);
 
+            var response = await client.ExecuteAsync(request);
+
+            // ✅ Handle response logging and errors
+            if (!response.IsSuccessful)
+            {
+                Console.WriteLine("❌ Xero update failed:");
+                Console.WriteLine($"StatusCode: {response.StatusCode}");
+                Console.WriteLine($"Content: {response.Content}");
+                throw new Exception($"Xero API error: {response.Content}");
+            }
+
+            Console.WriteLine($"✅ Invoice {dto.InvoiceNumber} updated successfully in Xero.");
             return response.Content;
         }
+    
 
         #endregion
 

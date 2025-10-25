@@ -8,11 +8,12 @@ namespace Application_Layer.DTO.Invoices
     public class InvoiceReadDto
     {
         //Used when Xero sends data back to you (via GET or webhook).
+        [JsonProperty("InvoiceNumber")]
+        public string InvoiceNumber { get; set; } = string.Empty;
+
         [JsonProperty("InvoiceID")]
         public string InvoiceXeroId { get; set; } = string.Empty;
 
-        [JsonProperty("InvoiceNumber")]
-        public string InvoiceNumber { get; set; } = string.Empty;
 
         [JsonProperty("Contact")]
         public ContactDto Contact { get; set; } = new ContactDto();

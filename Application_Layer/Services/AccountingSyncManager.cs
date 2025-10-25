@@ -170,7 +170,7 @@ namespace Application_Layer.Services
             try
             {
                 _logger.LogInformation("🔄 Starting Xero → DB synchronization for invoice {invoiceXeroId}", invoiceXeroId);
-
+                Console.WriteLine("Invoice Xero Id = "  + invoiceXeroId);
                 // 1️⃣ Get full invoice JSON from Xero
                 var invoicesJson = await _xeroApiManager.GetInvoiceByXeroIdAsync(invoiceXeroId);
                 var root = JsonConvert.DeserializeObject<JObject>(invoicesJson);
@@ -193,7 +193,7 @@ namespace Application_Layer.Services
                 var customer = await _customerRepository.GetByXeroIdAsync(customerXeroId);
                 if (customer == null)
                 {
-                    _logger.LogWarning("⚠️ No matching local customer for XeroId={CustomerXeroId}. Skipping invoice sync.", customerXeroId);
+                    Console.WriteLine("⚠️ No matching local customer for XeroId={CustomerXeroId}. Skipping invoice sync." + customerXeroId);
                     return;
                 }
 
@@ -202,7 +202,7 @@ namespace Application_Layer.Services
 
                 if (existingInvoice == null)
                 {
-                    _logger.LogInformation("🟢 Adding new invoice: {InvoiceNumber}", latestDto.InvoiceNumber);
+                    Console.WriteLine("🟢 Adding new invoice: {InvoiceNumber}" +  latestDto.InvoiceNumber);
 
                     var invoice = new Invoice
                     {
@@ -222,7 +222,7 @@ namespace Application_Layer.Services
                 }
                 else
                 {
-                    _logger.LogInformation("🟡 Updating existing invoice: {InvoiceNumber}", latestDto.InvoiceNumber);
+                    Console.WriteLine("🟡 Updating existing invoice: {InvoiceNumber}" + latestDto.InvoiceNumber);
 
                     existingInvoice.CustomerId = customer.Id;
                     existingInvoice.CustomerXeroId = customerXeroId;

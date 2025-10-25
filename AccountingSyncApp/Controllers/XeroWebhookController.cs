@@ -94,6 +94,7 @@ public class XeroWebhookController : ControllerBase
                     break;
 
                 case "INVOICE":
+                    Console.WriteLine("\n\nEsi kanchvav\n\n");
                     await _syncManager.SyncInvoicesFromXeroAsync(resourceId);
                     break;
 
