@@ -1,6 +1,8 @@
-﻿using Application_Layer.DTO.Customers;
+﻿using Application.DTOs;
+using Application_Layer.DTO.Customers;
 using Application_Layer.Interfaces;
 using Application_Layer.Interfaces_Repository;
+using Application_Layer.Services;
 using Domain_Layer.Models;
 using Infrastructure_Layer.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -14,18 +16,26 @@ namespace AccountingSyncApp.Controllers
     {
         //private readonly ICustomerRepository _customerRepository;
         private readonly IXeroCustomerSyncService _xeroCustomerSync;
+        private readonly IXeroInvoiceSyncService _xeroInvoiceSync;
+        private readonly IAccountingSyncManager _accountingSyncManager;
+
         //private readonly IXeroApiManager _xeroApiManager;
         private readonly ILogger<LocalDbController> _logger;
 
-        public LocalDbController(ICustomerRepository customerRepository, IXeroApiManager xeroApiManager, IXeroCustomerSyncService xeroCustomerSync, ILogger<LocalDbController> logger)
+        public LocalDbController(
+            IXeroCustomerSyncService xeroCustomerSync,
+            IXeroInvoiceSyncService xeroInvoiceSync,
+            IAccountingSyncManager accountingSyncManager,
+            ILogger<LocalDbController> logger)
         {
-            //_customerRepository = customerRepository;
             _xeroCustomerSync = xeroCustomerSync;
-            //_xeroApiManager = xeroApiManager;
+            _xeroInvoiceSync = xeroInvoiceSync;
+            _accountingSyncManager = accountingSyncManager;
             _logger = logger;
         }
 
-        // ✅ POST: api/customers/create
+        // CUSTOMER ENDPOINTS
+        // POST: api/customers/create
         [HttpPost("create")]
         public async Task<IActionResult> CreateCustomer([FromBody] CustomerCreateDto customerDto)
         {
@@ -84,5 +94,64 @@ namespace AccountingSyncApp.Controllers
         //    var customers = await  _customerRepository.GetAllAsync();
         //    return Ok(customers);
         //}
+
+        //INVOICE ENDPOINTS
+        [HttpPost("invoice/create")]
+        public async Task<IActionResult> CreateInvoice([FromBody] InvoiceCreateDto invoiceDto)
+        {
+            try
+            {
+                if (invoiceDto == null)
+                    return BadRequest("Invoice data is required.");
+
+                _logger.LogInformation("🧾 Creating new invoice locally for CustomerXeroId={CustomerXeroId}", invoiceDto.CustomerXeroId);
+
+                await _accountingSyncManager.CheckInvoiceDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(invoiceDto);
+
+                var createdInvoice = await _xeroInvoiceSync.SyncCreatedInvoiceAsync(invoiceDto);
+
+                return Ok(new
+                {
+                    message = "Invoice created successfully in DB and Xero.",
+                    localInvoiceId = createdInvoice.Id,
+                    xeroId = createdInvoice.XeroId
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error while creating invoice.");
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpPut("invoice/update")]
+        public async Task<IActionResult> UpdateInvoice([FromBody] InvoiceCreateDto invoiceDto)
+        {
+            try
+            {
+                if (invoiceDto == null)
+                    return BadRequest("Invoice data is required.");
+
+                if (string.IsNullOrWhiteSpace(invoiceDto.InvoiceXeroId))
+                    return BadRequest("InvoiceXeroId is required to update an invoice.");
+
+                _logger.LogInformation("✏️ Updating invoice in Xero and local DB: {InvoiceNumber}", invoiceDto.InvoiceNumber);
+
+                await _accountingSyncManager.CheckInvoiceDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(invoiceDto);
+
+                var result = await _xeroInvoiceSync.SyncUpdatedInvoiceAsync(invoiceDto);
+
+                return Ok(new
+                {
+                    message = "Invoice updated successfully in Xero and local DB.",
+                    xeroResponse = result
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error while updating invoice.");
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
     }
 }

@@ -108,7 +108,6 @@ namespace AccountingSyncApp.Controllers
         [HttpPost("create-invoice")]
         public async Task<IActionResult> CreateInvoice([FromBody] InvoiceCreateDto invoice)
         {
-            //im dbi het kapvac checkyyyy
             try
             {
                 Console.WriteLine("customerid = " + invoice.CustomerId);
@@ -127,9 +126,10 @@ namespace AccountingSyncApp.Controllers
         }
 
         [HttpPut("update-invoice")]
-        public async Task<IActionResult> UpdateInvoice([FromBody] InvoiceCreateDto dto)
+        public async Task<IActionResult> UpdateInvoice([FromBody] InvoiceCreateDto invoice)
         {
-            var response = await _xeroApiManager.UpdateInvoiceAsync(dto);
+            await _accountingSyncManager.CheckInvoiceDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(invoice);
+            var response = await _xeroApiManager.UpdateInvoiceAsync(invoice);
             var updatedInvoice = JsonConvert.DeserializeObject<InvoiceReadDto>(response);
             return Ok(updatedInvoice);
         }

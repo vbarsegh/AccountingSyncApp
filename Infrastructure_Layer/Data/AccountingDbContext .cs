@@ -46,6 +46,10 @@ namespace Infrastructure_Layer.Data
                 .HasForeignKey(i => i.CustomerId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<Invoice>()
+                .HasIndex(i => i.InvoiceNumber)
+                .IsUnique();
+
             // ✅ Proper foreign key relationship for Quote → Customer
             modelBuilder.Entity<Quote>()
                 .HasOne(q => q.Customer)

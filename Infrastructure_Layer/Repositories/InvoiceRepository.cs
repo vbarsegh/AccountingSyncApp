@@ -29,17 +29,54 @@ namespace Infrastructure_Layer.Repositories
 
         public async Task InsertAsync(Invoice invoice)
         {
-            invoice.CreatedAt = DateTime.UtcNow;
-            _context.Invoices.Add(invoice);
-            await _context.SaveChangesAsync();
+            try
+            {
+                invoice.CreatedAt = DateTime.UtcNow;
+                _context.Invoices.Add(invoice);
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                // Detect SQL constraint violation (duplicate key)
+                if (ex.InnerException != null && ex.InnerException.Message.Contains("IX_Invoices_InvoiceNumber"))
+                {
+                    throw new Exception($"Duplicate invoice number: {invoice.InvoiceNumber}. It must be unique.");
+                }
+
+                throw; // rethrow for other cases
+            }
         }
+
 
         public async Task UpdateAsync(Invoice invoice)
         {
-            invoice.UpdatedAt = DateTime.UtcNow;
-            _context.Invoices.Update(invoice);
-            await _context.SaveChangesAsync();
+            try
+            {
+                // Check for duplicates before updating
+                bool duplicateExists = await _context.Invoices
+                    .AnyAsync(i => i.InvoiceNumber == invoice.InvoiceNumber && i.Id != invoice.Id);
+                //esi nra hamara arac vor ete update vaxt nenc Invoice Number(INV-003) enq tali vory arden goyutyun uni exception qcenq
+                //sencem are vor chstacvi vor erku nuyn hamari tak invoice-ner linen mcacac tarbervox fielderov!!!
+
+                if (duplicateExists)
+                    throw new Exception($"Invoice number '{invoice.InvoiceNumber}' already exists for another invoice.");
+
+                // Update the entity
+                _context.Invoices.Update(invoice);
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                // Detect database-level constraint violation (unique index)
+                if (ex.InnerException != null && ex.InnerException.Message.Contains("IX_Invoices_InvoiceNumber"))
+                {
+                    throw new Exception($"Duplicate invoice number: {invoice.InvoiceNumber}. It must be unique.");
+                }
+
+                throw; // rethrow for other database issues
+            }
         }
+
 
         public async Task DeleteAsync(int id)
         {

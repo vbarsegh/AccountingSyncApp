@@ -31,6 +31,7 @@ namespace Infrastructure_Layer.Services
         //// Xero first, then DB
         public async Task<Customer> SyncCreatedCustomerAsync(CustomerCreateDto customerDto)
         {
+
             //meke stugel karoxa lav mitq chi customerRepository-n u xeroApiManager-@ drsic stanaly,check anelllll!!!!
             // 3. Save to local DB
             var customer = new Customer
