@@ -10,7 +10,7 @@ using System.Text;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 [ApiController]
-[Route("api/webhooks/xero")]
+[Route("api/webhooks/xeroo")]
 public class XeroWebhookController : ControllerBase
 {
     private readonly AccountingSyncManager _syncManager;
@@ -98,9 +98,10 @@ public class XeroWebhookController : ControllerBase
                     await _syncManager.SyncInvoicesFromXeroAsync(resourceId);
                     break;
 
-                //case "QUOTE":
-                //    await _syncManager.SyncQuotesFromXeroAsync(resourceId);
-                //    break;
+                case "QUOTE":
+                    Console.WriteLine("\n\nKanchvav Quotein@\n\n");
+                    await _syncManager.SyncQuotesFromXeroAsync(resourceId);
+                    break;
 
                 default:
                     _logger.LogInformation("⚠️ Ignored unknown eventCategory: {eventCategory}", eventCategory);

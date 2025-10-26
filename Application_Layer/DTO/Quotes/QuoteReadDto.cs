@@ -18,6 +18,9 @@ namespace Application_Layer.DTO.Quotes
         [JsonProperty("Contact")]
         public ContactDto Contact { get; set; } = new ContactDto();
 
+        [JsonProperty("Date")]
+        public DateTime DueDate { get; set; }
+
         [JsonProperty("ExpiryDate")]
         public DateTime ExpiryDate { get; set; }
 

@@ -17,6 +17,8 @@ namespace AccountingSyncApp.Controllers
         //private readonly ICustomerRepository _customerRepository;
         private readonly IXeroCustomerSyncService _xeroCustomerSync;
         private readonly IXeroInvoiceSyncService _xeroInvoiceSync;
+        private readonly IXeroQuoteSyncService _xeroQuoteSync;
+
         private readonly IAccountingSyncManager _accountingSyncManager;
 
         //private readonly IXeroApiManager _xeroApiManager;
@@ -25,11 +27,13 @@ namespace AccountingSyncApp.Controllers
         public LocalDbController(
             IXeroCustomerSyncService xeroCustomerSync,
             IXeroInvoiceSyncService xeroInvoiceSync,
+            IXeroQuoteSyncService xeroQuoteSync,
             IAccountingSyncManager accountingSyncManager,
             ILogger<LocalDbController> logger)
         {
             _xeroCustomerSync = xeroCustomerSync;
             _xeroInvoiceSync = xeroInvoiceSync;
+            _xeroQuoteSync = xeroQuoteSync;
             _accountingSyncManager = accountingSyncManager;
             _logger = logger;
         }
@@ -106,7 +110,7 @@ namespace AccountingSyncApp.Controllers
 
                 _logger.LogInformation("🧾 Creating new invoice locally for CustomerXeroId={CustomerXeroId}", invoiceDto.CustomerXeroId);
 
-                await _accountingSyncManager.CheckInvoiceDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(invoiceDto);
+                await _accountingSyncManager.CheckInvoice_QuotesDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(invoiceDto.CustomerId, invoiceDto.CustomerXeroId);
 
                 var createdInvoice = await _xeroInvoiceSync.SyncCreatedInvoiceAsync(invoiceDto);
 
@@ -137,7 +141,7 @@ namespace AccountingSyncApp.Controllers
 
                 _logger.LogInformation("✏️ Updating invoice in Xero and local DB: {InvoiceNumber}", invoiceDto.InvoiceNumber);
 
-                await _accountingSyncManager.CheckInvoiceDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(invoiceDto);
+                await _accountingSyncManager.CheckInvoice_QuotesDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(invoiceDto.CustomerId, invoiceDto.CustomerXeroId);
 
                 var result = await _xeroInvoiceSync.SyncUpdatedInvoiceAsync(invoiceDto);
 
@@ -153,5 +157,67 @@ namespace AccountingSyncApp.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
+
+        // ✅ QUOTES ENDPOINTS
+        [HttpPost("quote/create")]
+        public async Task<IActionResult> CreateQuote([FromBody] QuoteCreateDto quoteDto)
+        {
+            try
+            {
+                if (quoteDto == null)
+                    return BadRequest("Quote data is required.");
+
+                _logger.LogInformation("🧾 Creating new quote locally for CustomerXeroId={CustomerXeroId}", quoteDto.CustomerXeroId);
+
+                await _accountingSyncManager.CheckInvoice_QuotesDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(
+                    quoteDto.CustomerId, quoteDto.CustomerXeroId);
+
+                var createdQuote = await _xeroQuoteSync.SyncCreatedQuoteAsync(quoteDto);
+
+                return Ok(new
+                {
+                    message = "Quote created successfully in DB and Xero.",
+                    localQuoteId = createdQuote.Id,
+                    xeroId = createdQuote.XeroId
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error while creating quote.");
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpPut("quote/update")]
+        public async Task<IActionResult> UpdateQuote([FromBody] QuoteCreateDto quoteDto)
+        {
+            try
+            {
+                if (quoteDto == null)
+                    return BadRequest("Quote data is required.");
+
+                if (string.IsNullOrWhiteSpace(quoteDto.QuoteXeroId))
+                    return BadRequest("QuoteXeroId is required to update a quote.");
+
+                _logger.LogInformation("✏️ Updating quote in Xero and local DB: {QuoteNumber}", quoteDto.QuoteNumber);
+
+                await _accountingSyncManager.CheckInvoice_QuotesDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(
+                    quoteDto.CustomerId, quoteDto.CustomerXeroId);
+
+                var result = await _xeroQuoteSync.SyncUpdatedQuoteAsync(quoteDto);
+
+                return Ok(new
+                {
+                    message = "Quote updated successfully in Xero and local DB.",
+                    xeroResponse = result
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error while updating quote.");
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
     }
 }

@@ -56,6 +56,9 @@ namespace Infrastructure_Layer.Data
                 .WithMany()
                 .HasForeignKey(q => q.CustomerId)
                 .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<Quote>()
+                .HasIndex(q => q.QuoteNumber)
+                .IsUnique();
 
             // Precision for amounts
             modelBuilder.Entity<Invoice>()

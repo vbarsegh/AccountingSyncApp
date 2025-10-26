@@ -1,6 +1,7 @@
 ﻿using Application.DTOs;
 using Application_Layer.DTO.Customers;
 using Application_Layer.DTO.Invoices;
+using Application_Layer.DTO.Quotes;
 using Application_Layer.Interfaces;
 using Application_Layer.Interfaces_Repository;
 using Domain_Layer.Models;
@@ -245,18 +246,99 @@ namespace Application_Layer.Services
             }
         }
 
+        public async Task SyncQuotesFromXeroAsync(string quoteXeroId)
+        {
+            try
+            {
+                _logger.LogInformation("🔄 Starting Xero → DB synchronization for quote {quoteXeroId}", quoteXeroId);
 
-        public async Task<bool> CheckInvoiceDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(InvoiceCreateDto invoice)
+                // 1️⃣ Fetch quote data from Xero
+                var quotesJson = await _xeroApiManager.GetQuoteByXeroIdAsync(quoteXeroId);
+                var root = JsonConvert.DeserializeObject<JObject>(quotesJson);
+                var quotesArray = root["Quotes"]?.ToObject<List<QuoteReadDto>>() ?? new List<QuoteReadDto>();
+                var latestDto = quotesArray.FirstOrDefault();
+
+                if (latestDto == null)
+                {
+                    _logger.LogWarning("No quote found in Xero response for ID: {quoteXeroId}", quoteXeroId);
+                    return;
+                }
+
+                // ✅ Extract related customer info
+                string customerXeroId = latestDto.Contact?.ContactID ?? string.Empty;
+
+                _logger.LogInformation("✅ Received quote #{QuoteNumber} for customer {CustomerXeroId}",
+                    latestDto.QuoteNumber, customerXeroId);
+
+                // 2️⃣ Find the local customer by their XeroId
+                var customer = await _customerRepository.GetByXeroIdAsync(customerXeroId);
+                if (customer == null)
+                {
+                    Console.WriteLine("⚠️ No matching local customer for XeroId={CustomerXeroId}. Skipping quote sync." + customerXeroId);
+                    return;
+                }
+
+                // 3️⃣ Check if quote already exists locally
+                var existingQuote = await _quoteRepository.GetByQuoteXeroIdAsync(latestDto.QuoteXeroId);
+
+                if (existingQuote == null)
+                {
+                    Console.WriteLine("🟢 Adding new quote: {QuoteNumber}" + latestDto.QuoteNumber);
+
+                    var quote = new Quote
+                    {
+                        XeroId = latestDto.QuoteXeroId,
+                        CustomerId = customer.Id,
+                        CustomerXeroId = customerXeroId,
+                        QuoteNumber = latestDto.QuoteNumber,
+                        Description = latestDto.Description,
+                        TotalAmount = latestDto.TotalAmount,
+                        DueDate = latestDto.DueDate,
+                        ExpiryDate = latestDto.ExpiryDate,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                        SyncedToXero = true
+                    };
+
+                    await _quoteRepository.InsertAsync(quote);
+                }
+                else
+                {
+                    Console.WriteLine("🟡 Updating existing quote: {QuoteNumber}" + latestDto.QuoteNumber);
+
+                    existingQuote.CustomerId = customer.Id;
+                    existingQuote.CustomerXeroId = customerXeroId;
+                    existingQuote.QuoteNumber = latestDto.QuoteNumber;
+                    existingQuote.Description = latestDto.Description;
+                    existingQuote.TotalAmount = latestDto.TotalAmount;
+                    existingQuote.DueDate = latestDto.DueDate;
+                    existingQuote.ExpiryDate = latestDto.ExpiryDate;
+                    existingQuote.UpdatedAt = DateTime.UtcNow;
+                    existingQuote.SyncedToXero = true;
+
+                    await _quoteRepository.UpdateAsync(existingQuote);
+                }
+
+                _logger.LogInformation("✅ Quote synced successfully (#{QuoteNumber}).", latestDto.QuoteNumber);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error during Xero → DB quote synchronization");
+                throw;
+            }
+        }
+
+        public async Task<bool> CheckInvoice_QuotesDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(int CustomerId, string CustomerXeroId)
         {
             Console.WriteLine("hasanq check methodin");
-            var customer = await _customerRepository.GetByIdAsync(invoice.CustomerId);
+            var customer = await _customerRepository.GetByIdAsync(CustomerId);
 
             if (customer == null)
-                throw new Exception($"Customer with ID {invoice.CustomerId} not found in local DB.");
+                throw new Exception($"Customer with ID {CustomerId} not found in local DB.");
 
-            if (customer.XeroId != invoice.CustomerXeroId)
-                throw new Exception($"Mismatch: local customer (ID={invoice.CustomerId}) has XeroId={customer.XeroId}, " +
-                                    $"but request provided {invoice.CustomerXeroId}.");
+            if (customer.XeroId != CustomerXeroId)
+                throw new Exception($"Mismatch: local customer (ID={CustomerId}) has XeroId={customer.XeroId}, " +
+                                    $"but request provided {CustomerXeroId}.");
 
             return true;
         }

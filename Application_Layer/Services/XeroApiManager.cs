@@ -380,13 +380,30 @@ namespace Application_Layer.Services
             Console.WriteLine($"✅ Invoice {dto.InvoiceNumber} updated successfully in Xero.");
             return response.Content;
         }
-    
+
 
         #endregion
 
 
         // ✅ FIXED AND CLEANED QUOTE SECTION
         #region Quotes
+        public async Task<string> GetQuoteByXeroIdAsync(string quoteXeroId)
+        {
+            var accessToken = await GetValidAccessTokenAsync();
+            var client = new RestClient($"https://api.xero.com/api.xro/2.0/Quotes/{quoteXeroId}");
+            var request = new RestRequest();
+            request.Method = Method.Get;
+
+            request.AddHeader("Authorization", $"Bearer {accessToken}");
+            request.AddHeader("xero-tenant-id", _config["XeroSettings:TenantId"]);
+            request.AddHeader("Accept", "application/json");
+
+            var response = await client.ExecuteAsync(request);
+            if (!response.IsSuccessful)
+                throw new Exception($"Xero API error: {response.Content}");
+
+            return response.Content;
+        }
 
         public async Task<string> GetQuotesAsync()
         {

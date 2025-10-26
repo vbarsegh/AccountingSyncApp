@@ -1,5 +1,6 @@
 ﻿using Application.DTOs;
 using Application_Layer.DTO.Customers;
+using RestSharp;
 using System.Threading.Tasks;
 
 namespace Application_Layer.Interfaces
@@ -25,6 +26,8 @@ namespace Application_Layer.Interfaces
 
 
         // Quotes
+        Task<string> GetQuoteByXeroIdAsync(string quoteXeroId);
+
         Task<string> GetQuotesAsync();
         Task<string> CreateQuoteAsync(QuoteCreateDto quote);
         Task<string> UpdateQuoteAsync(QuoteCreateDto quote);

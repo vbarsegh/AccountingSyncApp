@@ -26,7 +26,6 @@ namespace AccountingSyncApp.Controllers
             _xeroApiManager = xeroApiManager;
             _accountingSyncManager = accountingSyncManager;
         }
-        //kjnjenq verjum
         [HttpGet("connections")]
         public async Task<IActionResult> GetConnections()
         {
@@ -112,7 +111,7 @@ namespace AccountingSyncApp.Controllers
             {
                 Console.WriteLine("customerid = " + invoice.CustomerId);
                 Console.WriteLine("CusotmerXeroId = " + invoice.CustomerXeroId);
-                await _accountingSyncManager.CheckInvoiceDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(invoice);//sranov stugum enq vor customerId-in hamapatasxani chisht customerXeroID-n,te che exception
+                await _accountingSyncManager.CheckInvoice_QuotesDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(invoice.CustomerId, invoice.CustomerXeroId);//sranov stugum enq vor customerId-in hamapatasxani chisht customerXeroID-n,te che exception
                 var response = await _xeroApiManager.CreateInvoiceAsync(invoice);
                 var createdInvoice = JsonConvert.DeserializeObject<InvoiceReadDto>(response);
                 return Ok(createdInvoice);
@@ -128,34 +127,72 @@ namespace AccountingSyncApp.Controllers
         [HttpPut("update-invoice")]
         public async Task<IActionResult> UpdateInvoice([FromBody] InvoiceCreateDto invoice)
         {
-            await _accountingSyncManager.CheckInvoiceDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(invoice);
-            var response = await _xeroApiManager.UpdateInvoiceAsync(invoice);
-            var updatedInvoice = JsonConvert.DeserializeObject<InvoiceReadDto>(response);
-            return Ok(updatedInvoice);
+            try
+            {
+                await _accountingSyncManager.CheckInvoice_QuotesDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(invoice.CustomerId, invoice.CustomerXeroId);
+                var response = await _xeroApiManager.UpdateInvoiceAsync(invoice);
+                var updatedInvoice = JsonConvert.DeserializeObject<InvoiceReadDto>(response);
+                return Ok(updatedInvoice);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal Server Error: {ex.Message}");
+            }
         }
+
         [HttpGet("quotes")]
         public async Task<IActionResult> GetQuotes()
         {
-            var response = await _xeroApiManager.GetQuotesAsync();
-            var quotes = JsonConvert.DeserializeObject<List<QuoteReadDto>>(response);
-            return Ok(quotes);
+            try
+            {
+                var response = await _xeroApiManager.GetQuotesAsync();
+                var root = JsonConvert.DeserializeObject<JObject>(response);
+                var quotes = root["Quotes"]?.ToObject<List<QuoteReadDto>>() ?? new List<QuoteReadDto>();
+                return Ok(quotes);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal Server Error: {ex.Message}");
+            }
         }
 
         [HttpPost("create-quote")]
-        public async Task<IActionResult> CreateQuote([FromBody] QuoteCreateDto dto)
+        public async Task<IActionResult> CreateQuote([FromBody] QuoteCreateDto quote)
         {
-            var response = await _xeroApiManager.CreateQuoteAsync(dto);
-            var createdQuote = JsonConvert.DeserializeObject<QuoteReadDto>(response);
-            return Ok(createdQuote);
+            try
+            {
+                Console.WriteLine("customerid = " + quote.CustomerId);
+                Console.WriteLine("CusotmerXeroId = " + quote.CustomerXeroId);
+
+                await _accountingSyncManager.CheckInvoice_QuotesDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(quote.CustomerId, quote.CustomerXeroId);
+
+                var response = await _xeroApiManager.CreateQuoteAsync(quote);
+                var createdQuote = JsonConvert.DeserializeObject<QuoteReadDto>(response);
+                return Ok(createdQuote);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal Server Error: {ex.Message}");
+            }
         }
 
         [HttpPut("update-quote")]
-        public async Task<IActionResult> UpdateQuote([FromBody] QuoteCreateDto dto)
+        public async Task<IActionResult> UpdateQuote([FromBody] QuoteCreateDto quote)
         {
-            var response = await _xeroApiManager.UpdateQuoteAsync(dto);
-            var updatedQuote = JsonConvert.DeserializeObject<QuoteReadDto>(response);
-            return Ok(updatedQuote);
+            try
+            {
+                await _accountingSyncManager.CheckInvoice_QuotesDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(quote.CustomerId, quote.CustomerXeroId);
+
+                var response = await _xeroApiManager.UpdateQuoteAsync(quote);
+                var updatedQuote = JsonConvert.DeserializeObject<QuoteReadDto>(response);
+                return Ok(updatedQuote);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal Server Error: {ex.Message}");
+            }
         }
+
 
     }
 
