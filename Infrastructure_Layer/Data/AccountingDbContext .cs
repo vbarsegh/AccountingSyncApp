@@ -15,9 +15,10 @@ namespace Infrastructure_Layer.Data
         {
         }
         public DbSet<Customer> Customers { get; set; }
-        public DbSet<XeroTokenResponse> XeroTokenResponse { get; set; }
         public DbSet<Invoice> Invoices { get; set; }
         public DbSet<Quote> Quotes { get; set; }
+        public DbSet<XeroTokenResponse> XeroTokenResponse { get; set; }
+        public DbSet<QuickBooksTokenResponse> QuickBooksTokenResponse { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -73,6 +74,14 @@ namespace Infrastructure_Layer.Data
             modelBuilder.Entity<Customer>()
                 .HasIndex(c => new { c.Name, c.Email, c.Phone, c.Address })
                 .IsUnique();
+        }
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            if (!optionsBuilder.IsConfigured)
+            {
+                optionsBuilder.UseSqlServer(
+                    "Server=(localdb)\\MSSQLLocalDB;Database=AccountingSyncDb;Integrated Security=True;TrustServerCertificate=True;");
+            }
         }
     }
 }

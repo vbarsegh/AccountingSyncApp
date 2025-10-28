@@ -5,6 +5,7 @@
         public int Id { get; set; }
 
         public string? XeroId { get; set; } // InvoiceID from Xero
+        public string? QuickBooksId { get; set; }
         public string InvoiceNumber { get; set; } = string.Empty;
 
         // Relation to Customer
@@ -20,6 +21,7 @@
         public DateTime UpdatedAt { get; set; }
 
         public bool SyncedToXero { get; set; }
+        public bool SyncedToQuickBooks { get; set; }
 
         // Navigation property
         public Customer? Customer { get; set; }//It allows you to easily access the full customer object from an invoice without manually joining tables.

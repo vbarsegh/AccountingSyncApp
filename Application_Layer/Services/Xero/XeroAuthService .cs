@@ -1,13 +1,13 @@
 ﻿using Domain_Layer.Models;
-using Application_Layer.Interfaces;
 using Newtonsoft.Json;
 using RestSharp;
 using System.Text.Json;
 using System.Web;
 using Microsoft.Extensions.Configuration;
 using Application_Layer.Interfaces_Repository;
+using Application_Layer.Interfaces.Xero;
 
-namespace Application_Layer.Services
+namespace Application_Layer.Services.Xero
 {
     public class XeroAuthService : IXeroAuthService
     {
@@ -66,7 +66,7 @@ namespace Application_Layer.Services
             var client = new RestClient("https://identity.xero.com/connect/token");
             var request = new RestRequest()
             {
-                Method = RestSharp.Method.Post
+                Method = Method.Post
             };
 
             request.AddHeader("Content-Type", "application/x-www-form-urlencoded");

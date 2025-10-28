@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application_Layer.Interfaces
+namespace Application_Layer.Interfaces.Xero
 {
     public interface IXeroAuthService
     {

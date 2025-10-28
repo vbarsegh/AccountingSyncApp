@@ -3,7 +3,7 @@ using Application_Layer.DTO.Customers;
 using RestSharp;
 using System.Threading.Tasks;
 
-namespace Application_Layer.Interfaces
+namespace Application_Layer.Interfaces.Xero
 {
     public interface IXeroApiManager
     {

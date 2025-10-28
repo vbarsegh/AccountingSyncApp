@@ -1,5 +1,4 @@
 ﻿using Domain_Layer.Models;
-using Application_Layer.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using RestSharp;
@@ -7,6 +6,7 @@ using System.Net;
 using System.Runtime.Intrinsics.X86;
 using System.Text.Json;
 using System.Web;
+using Application_Layer.Interfaces.Xero;
 
 
 namespace AccountingSyncApp.Controllers

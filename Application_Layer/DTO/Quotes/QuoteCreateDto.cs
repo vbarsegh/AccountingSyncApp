@@ -11,8 +11,8 @@
         public string CustomerXeroId { get; set; } = "";       // ContactID from Xero (Customer)
         public string Description { get; set; } = "";          // Line item description
         public decimal TotalAmount { get; set; }               // Total amount
-        public DateTime DueDate { get; set; }
-        public DateTime ExpiryDate { get; set; }  // ✅ NEW field for Quotes
+        public DateTime? DueDate { get; set; }
+        public DateTime? ExpiryDate { get; set; }  // ✅ NEW field for Quotes
         public bool SyncedToXero { get; set; } = false;
     }
 }

@@ -19,7 +19,10 @@ namespace Application_Layer.DTO.Quotes
         public ContactDto Contact { get; set; } = new ContactDto();
 
         [JsonProperty("Date")]
-        public DateTime DueDate { get; set; }
+        public DateTime? DueDate { get; set; }
+        public DateTime? UpdatedDateUTC { get; set; }// ⏰ Timestamp of the last update in Xero (UTC format)
+                                                    // Example: "2025-10-28T09:50:45Z"
+                                                    // Used in: SyncQuotesFromXeroPeriodicallyAsync() to detect whether Xero’s version is newer than local DB.
 
         [JsonProperty("ExpiryDate")]
         public DateTime ExpiryDate { get; set; }

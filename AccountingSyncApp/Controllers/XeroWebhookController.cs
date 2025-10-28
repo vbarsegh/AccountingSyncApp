@@ -100,7 +100,8 @@ public class XeroWebhookController : ControllerBase
 
                 case "QUOTE":
                     Console.WriteLine("\n\nKanchvav Quotein@\n\n");
-                    await _syncManager.SyncQuotesFromXeroAsync(resourceId);
+                    //await _syncManager.SyncQuotesFromXeroAsync(resourceId);
+                    await _syncManager.SyncQuotesFromXeroPeriodicallyAsync();
                     break;
 
                 default:

@@ -3,6 +3,8 @@ using Application_Layer.DTO.Customers;
 using Application_Layer.DTO.Invoices;
 using Application_Layer.DTO.Quotes;
 using Application_Layer.Interfaces;
+using Application_Layer.Interfaces.QuickBooks;
+using Application_Layer.Interfaces.Xero;
 using Application_Layer.Interfaces_Repository;
 using Domain_Layer.Models;
 using Microsoft.Extensions.Logging;
@@ -19,6 +21,7 @@ namespace Application_Layer.Services
     public class AccountingSyncManager : IAccountingSyncManager
     {
         private readonly IXeroApiManager _xeroApiManager;
+        private readonly IQuickBooksApiManager _qb;//
         private readonly IXeroCustomerSyncService _xeroCustomerSync;
         private readonly IXeroInvoiceSyncService _xeroInvoiceSync;
         private readonly  IXeroQuoteSyncService _xeroQuoteSync;
@@ -246,87 +249,163 @@ namespace Application_Layer.Services
             }
         }
 
-        public async Task SyncQuotesFromXeroAsync(string quoteXeroId)
+        public async Task SyncQuotesFromXeroPeriodicallyAsync()
         {
             try
             {
-                _logger.LogInformation("🔄 Starting Xero → DB synchronization for quote {quoteXeroId}", quoteXeroId);
+                _logger.LogInformation("🔁 Polling Xero for new or updated Quotes...");
 
-                // 1️⃣ Fetch quote data from Xero
-                var quotesJson = await _xeroApiManager.GetQuoteByXeroIdAsync(quoteXeroId);
+                // 1️⃣ Get all quotes from Xero
+                var quotesJson = await _xeroApiManager.GetQuotesAsync();
                 var root = JsonConvert.DeserializeObject<JObject>(quotesJson);
                 var quotesArray = root["Quotes"]?.ToObject<List<QuoteReadDto>>() ?? new List<QuoteReadDto>();
-                var latestDto = quotesArray.FirstOrDefault();
 
-                if (latestDto == null)
+                foreach (var q in quotesArray)
                 {
-                    _logger.LogWarning("No quote found in Xero response for ID: {quoteXeroId}", quoteXeroId);
-                    return;
-                }
+                    if (q == null || q.QuoteXeroId == null)
+                        continue;
 
-                // ✅ Extract related customer info
-                string customerXeroId = latestDto.Contact?.ContactID ?? string.Empty;
+                    var local = await _quoteRepository.GetByQuoteXeroIdAsync(q.QuoteXeroId);
 
-                _logger.LogInformation("✅ Received quote #{QuoteNumber} for customer {CustomerXeroId}",
-                    latestDto.QuoteNumber, customerXeroId);
-
-                // 2️⃣ Find the local customer by their XeroId
-                var customer = await _customerRepository.GetByXeroIdAsync(customerXeroId);
-                if (customer == null)
-                {
-                    Console.WriteLine("⚠️ No matching local customer for XeroId={CustomerXeroId}. Skipping quote sync." + customerXeroId);
-                    return;
-                }
-
-                // 3️⃣ Check if quote already exists locally
-                var existingQuote = await _quoteRepository.GetByQuoteXeroIdAsync(latestDto.QuoteXeroId);
-
-                if (existingQuote == null)
-                {
-                    Console.WriteLine("🟢 Adding new quote: {QuoteNumber}" + latestDto.QuoteNumber);
-
-                    var quote = new Quote
+                    if (local == null)
                     {
-                        XeroId = latestDto.QuoteXeroId,
-                        CustomerId = customer.Id,
-                        CustomerXeroId = customerXeroId,
-                        QuoteNumber = latestDto.QuoteNumber,
-                        Description = latestDto.Description,
-                        TotalAmount = latestDto.TotalAmount,
-                        DueDate = latestDto.DueDate,
-                        ExpiryDate = latestDto.ExpiryDate,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow,
-                        SyncedToXero = true
-                    };
+                        // !!!!!!!!!!!!1quote doesn’t exist locally → INSERT!!!!!!!!!!!!!!!1
+                        // New quote found in Xero → insert to local DB
+                        var customer = await _customerRepository.GetByXeroIdAsync(q.Contact?.ContactID ?? "");
+                        if (customer == null)
+                        {
+                            Console.WriteLine("⚠️ No matching local customer. Skipping quote sync.");
+                            continue;
+                        }
 
-                    await _quoteRepository.InsertAsync(quote);
+                        var newQuote = new Quote
+                        {
+                            XeroId = q.QuoteXeroId,
+                            CustomerId = customer.Id,
+                            CustomerXeroId = customer.XeroId,
+                            QuoteNumber = q.QuoteNumber,
+                            Description = q.Description,
+                            TotalAmount = q.TotalAmount,
+                            DueDate = q.DueDate,
+                            ExpiryDate = q.ExpiryDate,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow,
+                            SyncedToXero = true
+                        };
+
+                        await _quoteRepository.InsertAsync(newQuote);
+                        _logger.LogInformation("🆕 Added new quote from Xero: {QuoteNumber}", q.QuoteNumber);
+                    }
+                    else if (q.UpdatedDateUTC > local.UpdatedAt)
+                    {
+                        var customer = await _customerRepository.GetByXeroIdAsync(q.Contact?.ContactID ?? "");
+                        //!!!!!!!!!!quote exists but Xero version is newer → UPDATE!!!!!!!!!!!!!
+                        // Quote updated in Xero → refresh local record
+                        local.CustomerId = customer.Id;
+                        local.CustomerXeroId = customer.XeroId;
+
+                        local.QuoteNumber = q.QuoteNumber;
+                        local.Description = q.Description;
+                        local.TotalAmount = q.TotalAmount;
+                        local.DueDate = q.DueDate;
+                        local.ExpiryDate = q.ExpiryDate;
+                        local.UpdatedAt = DateTime.UtcNow;
+                        local.SyncedToXero = true;
+
+                        await _quoteRepository.UpdateAsync(local);
+                        _logger.LogInformation("♻️ Updated quote from Xero: {QuoteNumber}", q.QuoteNumber);
+                    }
                 }
-                else
-                {
-                    Console.WriteLine("🟡 Updating existing quote: {QuoteNumber}" + latestDto.QuoteNumber);
 
-                    existingQuote.CustomerId = customer.Id;
-                    existingQuote.CustomerXeroId = customerXeroId;
-                    existingQuote.QuoteNumber = latestDto.QuoteNumber;
-                    existingQuote.Description = latestDto.Description;
-                    existingQuote.TotalAmount = latestDto.TotalAmount;
-                    existingQuote.DueDate = latestDto.DueDate;
-                    existingQuote.ExpiryDate = latestDto.ExpiryDate;
-                    existingQuote.UpdatedAt = DateTime.UtcNow;
-                    existingQuote.SyncedToXero = true;
-
-                    await _quoteRepository.UpdateAsync(existingQuote);
-                }
-
-                _logger.LogInformation("✅ Quote synced successfully (#{QuoteNumber}).", latestDto.QuoteNumber);
+                _logger.LogInformation("✅ Quote polling sync completed successfully.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Error during Xero → DB quote synchronization");
-                throw;
+                _logger.LogError(ex, "❌ Error during periodic quote sync from Xero");
             }
         }
+
+        //public async Task SyncQuotesFromXeroAsync(string quoteXeroId)
+        //{
+        //    try
+        //    {
+        //        _logger.LogInformation("🔄 Starting Xero → DB synchronization for quote {quoteXeroId}", quoteXeroId);
+
+        //        // 1️⃣ Fetch quote data from Xero
+        //        var quotesJson = await _xeroApiManager.GetQuoteByXeroIdAsync(quoteXeroId);
+        //        var root = JsonConvert.DeserializeObject<JObject>(quotesJson);
+        //        var quotesArray = root["Quotes"]?.ToObject<List<QuoteReadDto>>() ?? new List<QuoteReadDto>();
+        //        var latestDto = quotesArray.FirstOrDefault();
+
+        //        if (latestDto == null)
+        //        {
+        //            _logger.LogWarning("No quote found in Xero response for ID: {quoteXeroId}", quoteXeroId);
+        //            return;
+        //        }
+
+        //        // ✅ Extract related customer info
+        //        string customerXeroId = latestDto.Contact?.ContactID ?? string.Empty;
+
+        //        _logger.LogInformation("✅ Received quote #{QuoteNumber} for customer {CustomerXeroId}",
+        //            latestDto.QuoteNumber, customerXeroId);
+
+        //        // 2️⃣ Find the local customer by their XeroId
+        //        var customer = await _customerRepository.GetByXeroIdAsync(customerXeroId);
+        //        if (customer == null)
+        //        {
+        //            Console.WriteLine("⚠️ No matching local customer for XeroId={CustomerXeroId}. Skipping quote sync." + customerXeroId);
+        //            return;
+        //        }
+
+        //        // 3️⃣ Check if quote already exists locally
+        //        var existingQuote = await _quoteRepository.GetByQuoteXeroIdAsync(latestDto.QuoteXeroId);
+
+        //        if (existingQuote == null)
+        //        {
+        //            Console.WriteLine("🟢 Adding new quote: {QuoteNumber}" + latestDto.QuoteNumber);
+
+        //            var quote = new Quote
+        //            {
+        //                XeroId = latestDto.QuoteXeroId,
+        //                CustomerId = customer.Id,
+        //                CustomerXeroId = customerXeroId,
+        //                QuoteNumber = latestDto.QuoteNumber,
+        //                Description = latestDto.Description,
+        //                TotalAmount = latestDto.TotalAmount,
+        //                DueDate = latestDto.DueDate,
+        //                ExpiryDate = latestDto.ExpiryDate,
+        //                CreatedAt = DateTime.UtcNow,
+        //                UpdatedAt = DateTime.UtcNow,
+        //                SyncedToXero = true
+        //            };
+
+        //            await _quoteRepository.InsertAsync(quote);
+        //        }
+        //        else
+        //        {
+        //            Console.WriteLine("🟡 Updating existing quote: {QuoteNumber}" + latestDto.QuoteNumber);
+
+        //            existingQuote.CustomerId = customer.Id;
+        //            existingQuote.CustomerXeroId = customerXeroId;
+        //            existingQuote.QuoteNumber = latestDto.QuoteNumber;
+        //            existingQuote.Description = latestDto.Description;
+        //            existingQuote.TotalAmount = latestDto.TotalAmount;
+        //            existingQuote.DueDate = latestDto.DueDate;
+        //            existingQuote.ExpiryDate = latestDto.ExpiryDate;
+        //            existingQuote.UpdatedAt = DateTime.UtcNow;
+        //            existingQuote.SyncedToXero = true;
+
+        //            await _quoteRepository.UpdateAsync(existingQuote);
+        //        }
+
+        //        _logger.LogInformation("✅ Quote synced successfully (#{QuoteNumber}).", latestDto.QuoteNumber);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "❌ Error during Xero → DB quote synchronization");
+        //        throw;
+        //    }
+        //}
 
         public async Task<bool> CheckInvoice_QuotesDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(int CustomerId, string CustomerXeroId)
         {
@@ -342,6 +421,6 @@ namespace Application_Layer.Services
 
             return true;
         }
-
+        //ste pti QuickBooksi pahy avelacvi
     }
 }

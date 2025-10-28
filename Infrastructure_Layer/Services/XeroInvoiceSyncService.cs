@@ -1,5 +1,6 @@
 ﻿using Application.DTOs;                // InvoiceCreateDto
 using Application_Layer.Interfaces;    // IXeroApiManager, IXeroInvoiceSyncService
+using Application_Layer.Interfaces.Xero;
 using Application_Layer.Interfaces_Repository;
 using Application_Layer.Services;
 using Domain_Layer.Models;

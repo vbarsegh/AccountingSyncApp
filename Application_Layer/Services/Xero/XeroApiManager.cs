@@ -1,7 +1,7 @@
 ﻿//This service will handle all requests to Xero using the stored token.
 using Application.DTOs;
 using Application_Layer.DTO.Customers;
-using Application_Layer.Interfaces;
+using Application_Layer.Interfaces.Xero;
 using Application_Layer.Interfaces_Repository;
 using Domain_Layer.Models;
 using Microsoft.Extensions.Configuration;
@@ -11,7 +11,7 @@ using RestSharp;
 using System;
 using System.Threading.Tasks;
 
-namespace Application_Layer.Services
+namespace Application_Layer.Services.Xero
 {
     //stex inch linum katarvuma Xero accounting system-i het
     public class XeroApiManager : IXeroApiManager
@@ -171,7 +171,7 @@ namespace Application_Layer.Services
     {
                 new
                 {
-                    Name = customer.Name,
+                    customer.Name,
                     EmailAddress = customer.Email,
                     Phones = new[]
                     {
@@ -220,7 +220,7 @@ namespace Application_Layer.Services
             new
             {
                 ContactID = customer.XeroId,//ete menq include enq anum XeroId-n(ContactID) body-ii mej Xero-n sranova haskanum vor pti update ani vochte create
-                Name = customer.Name,
+                customer.Name,
                 EmailAddress = customer.Email,
                 Phones = new[]
                 {
@@ -303,12 +303,12 @@ namespace Application_Layer.Services
                         Type = "ACCREC",
                         Contact = new { ContactID = invoice.CustomerXeroId },
                         Date = DateTime.UtcNow,
-                        DueDate = invoice.DueDate,
+                        invoice.DueDate,
                         LineItems = new[]
                         {
-                            new { Description = invoice.Description, Quantity = 1, UnitAmount = invoice.TotalAmount }
+                            new { invoice.Description, Quantity = 1, UnitAmount = invoice.TotalAmount }
                         },
-                        InvoiceNumber = invoice.InvoiceNumber
+                        invoice.InvoiceNumber
                     }
                 }
             };
@@ -352,14 +352,14 @@ namespace Application_Layer.Services
                 {
                     new
                     {
-                        Description = dto.Description,
+                        dto.Description,
                         Quantity = 1,
                         UnitAmount = dto.TotalAmount,
                         AccountCode = "200",   // ✅ REQUIRED
                         TaxType = "NONE"        // ✅ REQUIRED
                     }
                 },
-                InvoiceNumber = dto.InvoiceNumber
+                dto.InvoiceNumber
             }
         }
             };
@@ -438,21 +438,28 @@ namespace Application_Layer.Services
             var body = new
             {
                 Quotes = new[]
+     {
+        new
+        {
+            Contact = new { ContactID = quote.CustomerXeroId },    // ✅ required by Xero
+            Date = DateTime.UtcNow.ToString("yyyy-MM-dd"),          // ✅ must be string, not DateTime
+            ExpiryDate = quote.ExpiryDate?.ToString("yyyy-MM-dd")
+                        ?? DateTime.UtcNow.AddDays(30).ToString("yyyy-MM-dd"),  // ✅ always valid
+            LineItems = new[]
+            {
+                new
                 {
-                    new
-                    {
-                        Contact = new { ContactID = quote.CustomerXeroId },
-                        Date = DateTime.UtcNow,
-                        ExpiryDate = quote.ExpiryDate,
-                        LineItems = new[]
-                        {
-                            new { Description = quote.Description, Quantity = 1, UnitAmount = quote.TotalAmount }
-                        },
-                        Reference = quote.Description,
-                        Status = "DRAFT"
-                    }
+                    Description = quote.Description,
+                    Quantity = 1,
+                    UnitAmount = quote.TotalAmount
                 }
+            },
+            Reference = quote.Description,
+            Status = "DRAFT"
+        }
+    }
             };
+
 
             request.AddJsonBody(body);
             var response = await client.ExecuteAsync(request);
@@ -484,11 +491,13 @@ namespace Application_Layer.Services
                     new
                     {
                         QuoteID = quote.QuoteXeroId,
+                        Contact = new { ContactID = quote.CustomerXeroId },  // ✅ REQUIRED
+                        Date = DateTime.UtcNow.ToString("yyyy-MM-dd"),        // ✅ REQUIRED
+                        ExpiryDate = quote.ExpiryDate?.ToString("yyyy-MM-dd") ?? DateTime.UtcNow.AddDays(30).ToString("yyyy-MM-dd"),
                         LineItems = new[]
                         {
                             new { Description = quote.Description, Quantity = 1, UnitAmount = quote.TotalAmount }
                         },
-                        ExpiryDate = quote.ExpiryDate,
                         Status = "SENT"
                     }
                 }

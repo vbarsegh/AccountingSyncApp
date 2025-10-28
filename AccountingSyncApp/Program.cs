@@ -1,7 +1,11 @@
 
 using Application_Layer.Interfaces;
+using Application_Layer.Interfaces.QuickBooks;
+using Application_Layer.Interfaces.Xero;
 using Application_Layer.Interfaces_Repository;
 using Application_Layer.Services;
+//using Application_Layer.Services.QuickBooks;
+using Application_Layer.Services.Xero;
 using Domain_Layer.Models;
 using Infrastructure_Layer.Data;
 using Infrastructure_Layer.Helpers;
@@ -18,6 +22,8 @@ using System.Threading.Tasks;
 // 2. Register repositories
 // ----------------------
 builder.Services.AddScoped<IXeroTokenRepository, XeroTokenRepository>();
+builder.Services.AddScoped<IQuickBooksTokenRepository, QuickBooksTokenRepository>();
+
 builder.Services.AddScoped<CustomerRepository>();
 builder.Services.AddScoped<InvoiceRepository>();
 builder.Services.AddScoped<QuoteRepository>();
@@ -32,9 +38,14 @@ builder.Services.AddScoped<IQuoteRepository, QuoteRepository>();
 builder.Services.AddScoped<IAccountingSyncManager, AccountingSyncManager>();
 builder.Services.AddScoped<IXeroApiManager, XeroApiManager>();
 builder.Services.AddScoped<IXeroAuthService, XeroAuthService>();
+builder.Services.AddScoped<IQuickBooksAuthService, QuickBooksAuthService>();
+builder.Services.AddScoped<IQuickBooksApiManager, QuickBooksApiManager>();
 builder.Services.AddScoped<IXeroCustomerSyncService, XeroCustomerSyncService>();
 builder.Services.AddScoped<IXeroInvoiceSyncService, XeroInvoiceSyncService>();
 builder.Services.AddScoped<IXeroQuoteSyncService, XeroQuoteSyncService>();
+////
+builder.Services.AddHostedService<XeroQuotePollingService>();
+////
 builder.Services.AddScoped<AccountingSyncManager>();
 
 

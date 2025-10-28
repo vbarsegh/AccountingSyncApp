@@ -13,7 +13,8 @@ namespace Application_Layer.Interfaces
         Task SyncCustomersFromXeroAsync(string CustomerXeroId);
         //Invoices
         Task SyncInvoicesFromXeroAsync(string InvoiceXeroId);
-        Task SyncQuotesFromXeroAsync(string quoteXeroId);
+        Task SyncQuotesFromXeroPeriodicallyAsync();
+        //Task SyncQuotesFromXeroAsync(string quoteXeroId);
         Task<bool> CheckInvoice_QuotesDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(int CustomerId, string CustomerXeroId);
 
     }
