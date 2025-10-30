@@ -11,7 +11,6 @@ namespace Application_Layer.Interfaces.Xero
     {
         string GetLoginUrlAsync();
         Task<XeroTokenResponse> HandleCallbackAsync(string authorizationCodecode, string state);
-        Task SaveXeroTokenAsync(XeroTokenResponse token);
         Task<XeroTokenResponse> RefreshAccessTokenAsync(string refreshToken);
     }
 }

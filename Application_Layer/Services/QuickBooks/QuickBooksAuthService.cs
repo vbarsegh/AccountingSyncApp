@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Application_Layer.Interfaces;
 using Application_Layer.Interfaces_Repository;
@@ -11,7 +12,12 @@ using RestSharp;
 
 namespace Application_Layer.Services
 {
-    /// Handles QuickBooks OAuth: exchanging code, storing tokens, refreshing tokens.
+    /// <summary>
+    /// Handles QuickBooks OAuth 2.0 flow:
+    /// - Exchanges authorization code for access & refresh tokens
+    /// - Refreshes expired access tokens
+    /// - Stores tokens in database via repository
+    /// </summary>
     public class QuickBooksAuthService : IQuickBooksAuthService
     {
         private readonly IConfiguration _config;
@@ -30,6 +36,10 @@ namespace Application_Layer.Services
             _logger = logger;
         }
 
+        /// <summary>
+        /// Step 2: Called automatically from controller when QuickBooks redirects back with ?code=...&realmId=...
+        /// Exchanges the authorization code for access/refresh tokens.
+        /// </summary>
         public async Task HandleAuthCallbackAsync(string code, string realmId)
         {
             var clientId = _config["QuickBooks:ClientId"];
@@ -39,7 +49,7 @@ namespace Application_Layer.Services
             var client = new RestClient(TokenEndpoint);
             var request = new RestRequest("", Method.Post);
 
-            // Basic auth header with clientId:clientSecret
+            // Basic auth header (clientId:clientSecret)
             var basic = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}"));
             request.AddHeader("Authorization", $"Basic {basic}");
             request.AddHeader("Accept", "application/json");
@@ -54,29 +64,33 @@ namespace Application_Layer.Services
             if (!response.IsSuccessful)
                 throw new Exception($"QuickBooks token exchange failed: {(int)response.StatusCode} {response.Content}");
 
-            // Parse token response
-            // response JSON: access_token, refresh_token, expires_in, x_refresh_token_expires_in, token_type
-            dynamic json = System.Text.Json.JsonSerializer.Deserialize<dynamic>(response.Content!);
+            // ✅ Parse token JSON response
+            using var doc = JsonDocument.Parse(response.Content!);
+            var root = doc.RootElement;
 
-            var accessToken = (string)json.GetProperty("access_token").GetString();
-            var refreshToken = (string)json.GetProperty("refresh_token").GetString();
-            var expiresIn = (int)json.GetProperty("expires_in").GetInt32();
-            var xRefreshTokenExpiresIn = (int)json.GetProperty("x_refresh_token_expires_in").GetInt32();
+            var accessToken = root.GetProperty("access_token").GetString();
+            var refreshToken = root.GetProperty("refresh_token").GetString();
+            var expiresIn = root.GetProperty("expires_in").GetInt32();
+            var xRefreshTokenExpiresIn = root.GetProperty("x_refresh_token_expires_in").GetInt32();
 
             var token = new QuickBooksTokenResponse
             {
                 AccessToken = accessToken,
                 RefreshToken = refreshToken,
-                AccessTokenExpiresAt = DateTime.UtcNow.AddSeconds(expiresIn - 60), // 1 min early
-                RefreshTokenExpiresAt = DateTime.UtcNow.AddSeconds(xRefreshTokenExpiresIn - 3600), // 1h early
+                AccessTokenExpiresAt = DateTime.UtcNow.AddSeconds(expiresIn - 60), // expire slightly early
+                RefreshTokenExpiresAt = DateTime.UtcNow.AddSeconds(xRefreshTokenExpiresIn - 3600),
                 RealmId = realmId,
                 UpdatedAt = DateTime.UtcNow
             };
 
             await _repo.AddOrUpdateAsync(token);
-            _logger.LogInformation("QuickBooks tokens stored. RealmId={RealmId}", realmId);
+            _logger.LogInformation("✅ QuickBooks tokens stored successfully. RealmId={RealmId}", realmId);
         }
 
+        /// <summary>
+        /// Returns a valid QuickBooks access token (refreshing if necessary).
+        /// Used by QuickBooksApiManager when calling the API.
+        /// </summary>
         public async Task<string> GetAccessTokenAsync()
         {
             await EnsureFreshTokenAsync();
@@ -86,6 +100,9 @@ namespace Application_Layer.Services
             return latest.AccessToken;
         }
 
+        /// <summary>
+        /// Checks token expiration and refreshes automatically if needed.
+        /// </summary>
         public async Task EnsureFreshTokenAsync()
         {
             var token = await _repo.GetLatestAsync();
@@ -99,7 +116,8 @@ namespace Application_Layer.Services
             if (now >= token.RefreshTokenExpiresAt)
                 throw new Exception("QuickBooks refresh token expired. Re-authorize the app.");
 
-            // Refresh
+            _logger.LogInformation("♻️ Refreshing QuickBooks access token...");
+
             var clientId = _config["QuickBooks:ClientId"];
             var clientSecret = _config["QuickBooks:ClientSecret"];
 
@@ -118,19 +136,21 @@ namespace Application_Layer.Services
             if (!response.IsSuccessful)
                 throw new Exception($"QuickBooks token refresh failed: {(int)response.StatusCode} {response.Content}");
 
-            dynamic json = System.Text.Json.JsonSerializer.Deserialize<dynamic>(response.Content!);
+            // ✅ Parse response again
+            using var doc = JsonDocument.Parse(response.Content!);
+            var root = doc.RootElement;
 
-            token.AccessToken = (string)json.GetProperty("access_token").GetString();
-            token.RefreshToken = (string)json.GetProperty("refresh_token").GetString();
-            var expiresIn = (int)json.GetProperty("expires_in").GetInt32();
-            var xRefreshTokenExpiresIn = (int)json.GetProperty("x_refresh_token_expires_in").GetInt32();
+            token.AccessToken = root.GetProperty("access_token").GetString();
+            token.RefreshToken = root.GetProperty("refresh_token").GetString();
+            var expiresIn = root.GetProperty("expires_in").GetInt32();
+            var xRefreshTokenExpiresIn = root.GetProperty("x_refresh_token_expires_in").GetInt32();
 
             token.AccessTokenExpiresAt = DateTime.UtcNow.AddSeconds(expiresIn - 60);
             token.RefreshTokenExpiresAt = DateTime.UtcNow.AddSeconds(xRefreshTokenExpiresIn - 3600);
             token.UpdatedAt = DateTime.UtcNow;
 
             await _repo.AddOrUpdateAsync(token);
-            _logger.LogInformation("QuickBooks access token refreshed.");
+            _logger.LogInformation("✅ QuickBooks access token refreshed successfully.");
         }
     }
 }

@@ -8,7 +8,7 @@ using Infrastructure_Layer.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 
-namespace AccountingSyncApp.Controllers
+namespace AccountingSyncApp.Controllers.Local
 {
     [ApiController]
     [Route("api/[controller]")]

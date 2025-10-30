@@ -21,5 +21,8 @@ namespace Application_Layer.Interfaces_Repository
         Task DeleteAsync(int id);
 
         //public async Task checkIdAndXeroId(InvoiceCreateDto invoice);
+
+        //Quickbooks
+        Task<Customer> GetByQuickBooksIdAsync(string quickBooksId);
     }
 }

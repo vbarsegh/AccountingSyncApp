@@ -12,7 +12,10 @@ namespace Application_Layer.DTO.Customers
         public string Id { get; set; }
 
         [JsonProperty("ContactID")]
-        public string XeroId { get; set; } = string.Empty;
+        public string? XeroId { get; set; } = string.Empty;
+        //
+        public string? CustomerQuickBooksId { get; set; }
+        public string? SyncToken { get; set; }
 
         [JsonProperty("Name")]
         public string Name { get; set; } = string.Empty;

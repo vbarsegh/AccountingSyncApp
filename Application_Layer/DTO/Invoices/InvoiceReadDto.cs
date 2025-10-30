@@ -12,14 +12,16 @@ namespace Application_Layer.DTO.Invoices
         public string InvoiceNumber { get; set; } = string.Empty;
 
         [JsonProperty("InvoiceID")]
-        public string InvoiceXeroId { get; set; } = string.Empty;
+        public string? InvoiceXeroId { get; set; } = string.Empty;
 
+        //
+        public string? InvoiceQuickBooksId { get; set; }
 
         [JsonProperty("Contact")]
         public ContactDto Contact { get; set; } = new ContactDto();
 
         [JsonProperty("DueDate")]
-        public DateTime DueDate { get; set; }
+        public DateTime? DueDate { get; set; }
 
         [JsonProperty("Total")]
         public decimal TotalAmount { get; set; } // ✅ matches your domain and create DTO

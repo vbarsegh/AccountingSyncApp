@@ -119,5 +119,12 @@ namespace Infrastructure_Layer.Repositories
         //                            $"but request provided {invoice.CustomerXeroId}.");
         //}
 
+
+        //QuickBooks
+        public async Task<Customer> GetByQuickBooksIdAsync(string quickBooksId)
+        {
+            return await _context.Customers.FirstOrDefaultAsync(c => c.QuickBooksId == quickBooksId);
+        }
+
     }
 }

@@ -10,7 +10,10 @@ namespace Application_Layer.DTO.Quotes
         // Used when Xero sends data back to you (via GET or webhook).
 
         [JsonProperty("QuoteID")]
-        public string QuoteXeroId { get; set; } = string.Empty;
+        public string? QuoteXeroId { get; set; } = string.Empty;
+
+        //
+        public string? QuoteQuickBooksId { get; set; }
 
         [JsonProperty("QuoteNumber")]
         public string QuoteNumber { get; set; } = string.Empty;

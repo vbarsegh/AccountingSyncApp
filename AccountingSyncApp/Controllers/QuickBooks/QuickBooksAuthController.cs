@@ -28,14 +28,14 @@ namespace AccountingSyncApp.Controllers
 
         // Step 1: Redirect user to Intuit OAuth consent page
         [HttpGet("connect")]
-        public IActionResult Connect()
+        public IActionResult Connect() //You call this manually from your app
         {
             var clientId = _config["QuickBooks:ClientId"];
             var redirectUri = WebUtility.UrlEncode(_config["QuickBooks:RedirectUri"]);
             var scopes = WebUtility.UrlEncode(_config["QuickBooks:Scopes"]);
             var state = Guid.NewGuid().ToString("N");
 
-            var url =
+            var url = //Constructs the QuickBooks authorization URL.
                 $"https://appcenter.intuit.com/connect/oauth2?client_id={clientId}" +
                 $"&response_type=code&scope={scopes}&redirect_uri={redirectUri}&state={state}";
 
@@ -43,7 +43,8 @@ namespace AccountingSyncApp.Controllers
         }
 
         // Step 2: OAuth callback (QuickBooks redirects here with ?code=...&realmId=...)
-        [HttpGet("callback")]
+        [HttpGet("callback")] //QuickBooks will redirect here after user login:
+        //QuickBooks calls this automatically`  After the user logs in and approves access, QuickBooks automatically sends the browser back to your redirect URI that you registered
         public async Task<IActionResult> Callback([FromQuery] string code, [FromQuery] string realmId, [FromQuery] string state)
         {
             if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(realmId))

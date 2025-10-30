@@ -17,5 +17,8 @@ namespace Application_Layer.Interfaces
         //Task SyncQuotesFromXeroAsync(string quoteXeroId);
         Task<bool> CheckInvoice_QuotesDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(int CustomerId, string CustomerXeroId);
 
+        //QuickBooks
+        Task HandleQuickBooksCustomerChangedAsync(string quickBooksCustomerId);
+
     }
 }

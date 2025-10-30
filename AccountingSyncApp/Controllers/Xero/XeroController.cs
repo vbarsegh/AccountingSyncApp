@@ -13,7 +13,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 using System.Reflection;
-namespace AccountingSyncApp.Controllers
+namespace AccountingSyncApp.Controllers.Xero
 {
     [ApiController]
     [Route("api/[controller]")]

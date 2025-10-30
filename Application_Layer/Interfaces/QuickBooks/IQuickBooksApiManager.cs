@@ -6,11 +6,12 @@ namespace Application_Layer.Interfaces.QuickBooks
     {
         // Customers
         Task<Customer> CreateOrUpdateCustomerAsync(Customer customer);
+        Task<string> GetCustomerByIdAsync(string quickBooksCustomerId);
 
         // Invoices
-        Task<Invoice> CreateOrUpdateInvoiceAsync(Invoice invoice);
+        //Task<Invoice> CreateOrUpdateInvoiceAsync(Invoice invoice);
 
-        // Quotes (Estimates in QBO)
-        Task<Quote> CreateOrUpdateQuoteAsync(Quote quote);
+        //// Quotes (Estimates in QBO)
+        //Task<Quote> CreateOrUpdateQuoteAsync(Quote quote);
     }
 }

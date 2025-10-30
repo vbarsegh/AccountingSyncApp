@@ -3,8 +3,9 @@
     public class Customer
     {
         public int Id { get; set; }
-        public string XeroId { get; set; }
-        public string QuickBooksId { get; set; }
+        public string? XeroId { get; set; }
+        public string? QuickBooksId { get; set; }
+        public string? SyncToken { get; set; }
         public string Name { get; set; }
         public string Email { get; set; }
         public string Phone { get; set; }

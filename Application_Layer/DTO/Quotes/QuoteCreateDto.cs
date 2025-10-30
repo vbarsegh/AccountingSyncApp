@@ -7,6 +7,7 @@
 
         public string QuoteNumber { get; set; } = "";          // e.g. "QUO-001"
         public string? QuoteXeroId { get; set; }               // Xero QuoteID
+        public string? QuoteQuickBooksId { get; set; }
         public int CustomerId { get; set; }                    // Local DB Customer FK
         public string CustomerXeroId { get; set; } = "";       // ContactID from Xero (Customer)
         public string Description { get; set; } = "";          // Line item description

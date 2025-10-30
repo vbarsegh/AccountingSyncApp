@@ -74,6 +74,42 @@ namespace Infrastructure_Layer.Data
             modelBuilder.Entity<Customer>()
                 .HasIndex(c => new { c.Name, c.Email, c.Phone, c.Address })
                 .IsUnique();
+
+
+            //XeroId and QuickBooksId can be null
+            // ✅ Customer external IDs
+            modelBuilder.Entity<Customer>()
+                .Property(c => c.XeroId)
+                .HasMaxLength(4000)
+                .IsRequired(false);
+
+            modelBuilder.Entity<Customer>()
+                .Property(c => c.QuickBooksId)
+                .HasMaxLength(4000)
+                .IsRequired(false);
+
+            // ✅ Invoice external IDs
+            modelBuilder.Entity<Invoice>()
+                .Property(i => i.XeroId)
+                .HasMaxLength(4000)
+                .IsRequired(false);
+
+            modelBuilder.Entity<Invoice>()
+                .Property(i => i.QuickBooksId)
+                .HasMaxLength(4000)
+                .IsRequired(false);
+
+            // ✅ Quote external IDs
+            modelBuilder.Entity<Quote>()
+                .Property(q => q.XeroId)
+                .HasMaxLength(4000)
+                .IsRequired(false);
+
+            modelBuilder.Entity<Quote>()
+                .Property(q => q.QuickBooksId)
+                .HasMaxLength(4000)
+                .IsRequired(false);
+
         }
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {

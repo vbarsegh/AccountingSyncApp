@@ -9,7 +9,7 @@ using System.Web;
 using Application_Layer.Interfaces.Xero;
 
 
-namespace AccountingSyncApp.Controllers
+namespace AccountingSyncApp.Controllers.Xero
 {
     [ApiController]
     [Route("api/[controller]")]

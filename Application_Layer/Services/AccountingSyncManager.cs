@@ -33,6 +33,7 @@ namespace Application_Layer.Services
 
         public AccountingSyncManager(
             IXeroApiManager xeroApiManager,
+             IQuickBooksApiManager qb,
      IXeroCustomerSyncService xeroCustomerSync,
      IXeroInvoiceSyncService xeroInvoiceSync,
      IXeroQuoteSyncService xeroQuoteSync,
@@ -42,6 +43,7 @@ namespace Application_Layer.Services
      ILogger<AccountingSyncManager> logger)
         {
             _xeroApiManager = xeroApiManager;
+            _qb = qb;
             _xeroCustomerSync = xeroCustomerSync;
             _xeroInvoiceSync = xeroInvoiceSync;
             _xeroQuoteSync = xeroQuoteSync;
@@ -216,7 +218,7 @@ namespace Application_Layer.Services
                         InvoiceNumber = latestDto.InvoiceNumber,
                         Description = latestDto.Description,
                         TotalAmount = latestDto.TotalAmount,
-                        DueDate = latestDto.DueDate,
+                        DueDate = latestDto.DueDate ?? DateTime.UtcNow.AddDays(30),
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow,
                         SyncedToXero = true
@@ -233,7 +235,7 @@ namespace Application_Layer.Services
                     existingInvoice.InvoiceNumber = latestDto.InvoiceNumber;
                     existingInvoice.Description = latestDto.Description;
                     existingInvoice.TotalAmount = latestDto.TotalAmount;
-                    existingInvoice.DueDate = latestDto.DueDate;
+                    existingInvoice.DueDate = latestDto.DueDate ?? DateTime.UtcNow.AddDays(30);
                     existingInvoice.UpdatedAt = DateTime.UtcNow;
                     existingInvoice.SyncedToXero = true;
 
@@ -422,5 +424,89 @@ namespace Application_Layer.Services
             return true;
         }
         //ste pti QuickBooksi pahy avelacvi
+
+
+        public async Task HandleQuickBooksCustomerChangedAsync(string quickBooksCustomerId)
+        {
+            try
+            {
+                _logger.LogInformation("🔄 Starting QuickBooks → DB sync for Customer ID={Id}", quickBooksCustomerId);
+
+                // 1️⃣ Get full customer JSON from QuickBooks API
+                var customerJson = await _qb.GetCustomerByIdAsync(quickBooksCustomerId);
+                if (string.IsNullOrWhiteSpace(customerJson))
+                {
+                    _logger.LogWarning("⚠️ Empty response from QuickBooks for Customer ID={Id}", quickBooksCustomerId);
+                    return;
+                }
+
+                var root = JsonConvert.DeserializeObject<JObject>(customerJson);
+                var customerObj = root["Customer"];
+                if (customerObj == null)
+                {
+                    _logger.LogWarning("⚠️ No 'Customer' object found in QuickBooks JSON for ID={Id}", quickBooksCustomerId);
+                    return;
+                }
+
+                // 2️⃣ Map QuickBooks JSON → DTO
+                var name = customerObj["DisplayName"]?.ToString() ?? string.Empty;
+                var email = customerObj["PrimaryEmailAddr"]?["Address"]?.ToString() ?? string.Empty;
+                var phone = customerObj["PrimaryPhone"]?["FreeFormNumber"]?.ToString() ?? string.Empty;
+                var address = customerObj["BillAddr"]?["Line1"]?.ToString() ?? string.Empty;
+
+                _logger.LogInformation("📦 Received QuickBooks customer: {Name}, {Email}, {Phone}, {Address}", name, email, phone, address);
+
+                // 3️⃣ Try to find this customer in local DB by QuickBooksId
+                var existing = await _customerRepository.GetByQuickBooksIdAsync(quickBooksCustomerId);
+
+                if (existing == null)
+                {
+                    // Also check by name + email to avoid duplicates
+                    existing = await _customerRepository.GetByDetailsAsync(name, email, phone, address);
+                }
+
+                // 4️⃣ Create or update local record
+                if (existing == null)
+                {
+                    _logger.LogInformation("🟢 Adding new customer from QuickBooks: {Name}", name);
+
+                    var newCustomer = new Customer
+                    {
+                        QuickBooksId = quickBooksCustomerId,
+                        Name = name,
+                        Email = email,
+                        Phone = phone,
+                        Address = address,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                        SyncedToQuickBooks = true
+                    };
+
+                    await _customerRepository.InsertAsync(newCustomer);
+                    _logger.LogInformation("✅ Customer inserted in local DB: {Name} (QuickBooksId={Id})", name, quickBooksCustomerId);
+                }
+                else
+                {
+                    _logger.LogInformation("🟡 Updating existing local customer: {Name}", name);
+
+                    existing.QuickBooksId = quickBooksCustomerId;
+                    existing.Name = name;
+                    existing.Email = email;
+                    existing.Phone = phone;
+                    existing.Address = address;
+                    existing.UpdatedAt = DateTime.UtcNow;
+                    existing.SyncedToQuickBooks = true;
+
+                    await _customerRepository.UpdateAsync(existing);
+                    _logger.LogInformation("✅ Customer updated in local DB: {Name} (QuickBooksId={Id})", name, quickBooksCustomerId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error during QuickBooks → DB customer synchronization");
+                throw;
+            }
+        }
+
     }
 }

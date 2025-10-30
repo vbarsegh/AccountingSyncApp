@@ -119,19 +119,7 @@ namespace Application_Layer.Services.Xero
             // Return success (tokens are stored in _xeroTokens for now)
             return tokenResponse;
         }
-        public async Task SaveXeroTokenAsync(XeroTokenResponse token)
-        {
-            if (token == null)
-                throw new ArgumentNullException(nameof(token));
-            //Save token to Db
-            await _tokenRepository.SaveTokenAsync(token);
-        }
-
-
-
-
-
-
+       
         public async Task<XeroTokenResponse> RefreshAccessTokenAsync(string refreshToken)
         {
             var client = new RestClient("https://identity.xero.com/connect/token");

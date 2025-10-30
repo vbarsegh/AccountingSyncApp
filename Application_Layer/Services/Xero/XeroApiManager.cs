@@ -346,7 +346,7 @@ namespace Application_Layer.Services.Xero
                 Type = "ACCREC",
                 Contact = new { ContactID = dto.CustomerXeroId },
                 Date = DateTime.UtcNow.ToString("yyyy-MM-dd"),
-                DueDate = dto.DueDate.ToString("yyyy-MM-dd"),
+                DueDate = dto.DueDate?.ToString("yyyy-MM-dd") ?? DateTime.UtcNow.ToString("yyyy-MM-dd"),
                 LineAmountTypes = "Exclusive",
                 LineItems = new[]
                 {

@@ -44,7 +44,7 @@ namespace Infrastructure_Layer.Services
                 CustomerXeroId = dto.CustomerXeroId, // ContactID for Xero calls (optional to store)
                 Description    = dto.Description,
                 TotalAmount    = dto.TotalAmount,
-                DueDate        = dto.DueDate,
+                DueDate        = dto.DueDate ?? DateTime.UtcNow.AddDays(30),
                 InvoiceNumber  = dto.InvoiceNumber ?? string.Empty,
                 CreatedAt      = DateTime.UtcNow,
                 UpdatedAt      = DateTime.UtcNow,
@@ -105,7 +105,7 @@ namespace Infrastructure_Layer.Services
             localInvoice.Description = dto.Description;
             localInvoice.InvoiceNumber = dto.InvoiceNumber;
             localInvoice.TotalAmount = dto.TotalAmount;
-            localInvoice.DueDate = dto.DueDate;
+            localInvoice.DueDate = dto.DueDate ?? DateTime.UtcNow.AddDays(30);
             localInvoice.UpdatedAt = DateTime.UtcNow;
             localInvoice.SyncedToXero = false;
 
