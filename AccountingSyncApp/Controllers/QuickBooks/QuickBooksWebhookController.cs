@@ -96,20 +96,20 @@ namespace AccountingSyncApp.Controllers
                                 }
                                 break;
 
-                            //case "Invoice":
-                            //    if (operation == "Create" || operation == "Update")
-                            //    {
-                            //        _logger.LogInformation("🔄 Syncing QuickBooks invoice {Id}...", id);
-                            //        await _syncManager.HandleQuickBooksInvoiceChangedAsync(id);
-                            //    }
-                            //    break;
+                            case "Invoice":
+                                if (operation == "Create" || operation == "Update")
+                                {
+                                    _logger.LogInformation("🔄 Syncing QuickBooks invoice {Id}...", id);
+                                    await _syncManager.HandleQuickBooksInvoiceChangedAsync(id);
+                                }
+                                break;
 
-                            //case "Estimate": // QuickBooks name for quotes
-                            //    if (operation == "Create" || operation == "Update")
-                            //    {
-                            //        _logger.LogInformation("🔄 Syncing QuickBooks quote {Id}...", id);
-                            //        await _syncManager.HandleQuickBooksQuoteChangedAsync(id);
-                            //    }
+                            case "Estimate": // QuickBooks name for quotes
+                                if (operation == "Create" || operation == "Update")
+                                {
+                                    _logger.LogInformation("🔄 Syncing QuickBooks quote {Id}...", id);
+                                    await _syncManager.HandleQuickBooksQuoteChangedAsync(id);
+                                }
                                 break;
                         }
                     }

@@ -10,7 +10,8 @@ namespace Application.DTOs
         public string? InvoiceXeroId { get; set; }               // Xero InvoiceID
         public string? InvoiceQuickBooksId { get; set; }
         public int CustomerId { get; set; }  // Local DB Customer FK
-        public string CustomerXeroId { get; set; } = "";  // ContactID from Xero (Customer)
+        public string? CustomerXeroId { get; set; } = "";  // ContactID from Xero (Customer)
+        public string? CustomerQuickBooksId { get; set; }
         public string Description { get; set; } = "";     // Line item description
         public decimal TotalAmount { get; set; }          // Total amount
         public DateTime? DueDate { get; set; }             // Due date

@@ -17,5 +17,8 @@ namespace Application_Layer.Interfaces_Repository
         Task UpdateAsync(Invoice invoice);
         Task DeleteAsync(int id);
 
+        //quickbooks
+        Task<Invoice> GetByInvoiceQuickBooksIdAsync(string quickBooksId);
+
     }
 }

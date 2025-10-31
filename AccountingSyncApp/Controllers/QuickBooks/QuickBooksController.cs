@@ -84,114 +84,145 @@ namespace AccountingSyncApp.Controllers.QuickBooks
 
         // ---------------- INVOICES ----------------
 
-        //[HttpPost("create-invoice")]
-        //public async Task<IActionResult> CreateInvoice([FromBody] InvoiceCreateDto invoiceDto)
-        //{
-        //    try
-        //    {
-        //        await _accountingSyncManager.CheckInvoice_QuotesDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(invoiceDto.CustomerId, invoiceDto.CustomerXeroId);
+        [HttpPost("create-invoice")]
+        public async Task<IActionResult> CreateInvoice([FromBody] InvoiceCreateDto invoiceDto)
+        {
+            try
+            {
+                if (invoiceDto == null)
+                    return BadRequest("Invoice data is required.");
 
-        //        var invoice = new Invoice
-        //        {
-        //            InvoiceNumber = invoiceDto.InvoiceNumber,
-        //            Description = invoiceDto.Description,
-        //            TotalAmount = invoiceDto.TotalAmount,
-        //            DueDate = invoiceDto.DueDate ?? DateTime.UtcNow.AddDays(30),
-        //            CustomerId = invoiceDto.CustomerId,
-        //            CreatedAt = DateTime.UtcNow,
-        //            UpdatedAt = DateTime.UtcNow
-        //        };
+                // ✅ Ensure customer exists locally by QuickBooksId
+                await _accountingSyncManager.CheckInvoice_QuotesDtoCustomerIdAndCustomerQuickBooksIDAppropriatingInLocalDbValues(invoiceDto.CustomerId, invoiceDto.CustomerQuickBooksId);
+                var invoice = new Invoice
+                {
+                    CustomerId = invoiceDto.CustomerId,
+                    CustomerQuickBooksId = invoiceDto.CustomerQuickBooksId,
+                    InvoiceNumber = invoiceDto.InvoiceNumber,
+                    Description = invoiceDto.Description,
+                    TotalAmount = invoiceDto.TotalAmount,
+                    DueDate = invoiceDto.DueDate ?? DateTime.UtcNow.AddDays(30),
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                //quickbooks-i u Xero-i tarberutyuny  ayev ena vor Xero-n stanum er createdto isk quickbooksy stanuma henc domainn=-i hstak modely(invoice, cusotmer)
+                var result = await _quickBooksApiManager.CreateOrUpdateInvoiceAsync(invoice);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"❌ Error while creating invoice in QuickBooks: {ex.Message}");
+            }
+        }
 
-        //        var result = await _quickBooksApiManager.CreateOrUpdateInvoiceAsync(invoice);
-        //        return Ok(result);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, $"❌ Error while creating QuickBooks invoice: {ex.Message}");
-        //    }
         //}
 
-        //[HttpPut("update-invoice")]
-        //public async Task<IActionResult> UpdateInvoice([FromBody] InvoiceCreateDto invoiceDto)
-        //{
-        //    try
-        //    {
-        //        await _accountingSyncManager.CheckInvoice_QuotesDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(invoiceDto.CustomerId, invoiceDto.CustomerXeroId);
+        [HttpPut("update-invoice")]
+        public async Task<IActionResult> UpdateInvoice([FromBody] InvoiceCreateDto invoiceDto)
+        {
+            try
+            {
+                if (invoiceDto == null)
+                    return BadRequest("Invoice data is required.");
 
-        //        var invoice = new Invoice
-        //        {
-        //            QuickBooksId = invoiceDto.InvoiceQuickBooksId,
-        //            InvoiceNumber = invoiceDto.InvoiceNumber,
-        //            Description = invoiceDto.Description,
-        //            TotalAmount = invoiceDto.TotalAmount,
-        //            DueDate = invoiceDto.DueDate ?? DateTime.UtcNow.AddDays(30),
-        //            CustomerId = invoiceDto.CustomerId,
-        //            UpdatedAt = DateTime.UtcNow
-        //        };
+                await _accountingSyncManager.CheckInvoice_QuotesDtoCustomerIdAndCustomerQuickBooksIDAppropriatingInLocalDbValues(invoiceDto.CustomerId, invoiceDto.CustomerQuickBooksId);
 
-        //        var result = await _quickBooksApiManager.CreateOrUpdateInvoiceAsync(invoice);
-        //        return Ok(result);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, $"❌ Error while updating QuickBooks invoice: {ex.Message}");
-        //    }
-        //}
+                var invoice = new Invoice
+                {
+                    QuickBooksId = invoiceDto.InvoiceQuickBooksId,
+                    CustomerId = invoiceDto.CustomerId,
+                    CustomerQuickBooksId = invoiceDto.CustomerQuickBooksId,
+                    InvoiceNumber = invoiceDto.InvoiceNumber,
+                    Description = invoiceDto.Description,
+                    TotalAmount = invoiceDto.TotalAmount,
+                    DueDate = invoiceDto.DueDate ?? DateTime.UtcNow.AddDays(30),
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                var result = await _quickBooksApiManager.CreateOrUpdateInvoiceAsync(invoice);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"❌ Error while updating invoice in QuickBooks: {ex.Message}");
+            }
+        }
+
 
         //// ---------------- QUOTES ----------------
 
-        //[HttpPost("create-quote")]
-        //public async Task<IActionResult> CreateQuote([FromBody] QuoteCreateDto quoteDto)
-        //{
-        //    try
-        //    {
-        //        await _accountingSyncManager.CheckInvoice_QuotesDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(quoteDto.CustomerId, quoteDto.CustomerXeroId);
+        // ---------------- QUOTES ----------------
 
-        //        var quote = new Quote
-        //        {
-        //            QuoteNumber = quoteDto.QuoteNumber,
-        //            Description = quoteDto.Description,
-        //            TotalAmount = quoteDto.TotalAmount,
-        //            ExpiryDate = quoteDto.ExpiryDate ?? DateTime.UtcNow.AddDays(30),
-        //            CustomerId = quoteDto.CustomerId,
-        //            CreatedAt = DateTime.UtcNow,
-        //            UpdatedAt = DateTime.UtcNow
-        //        };
+        [HttpPost("create-quote")]
+        public async Task<IActionResult> CreateQuote([FromBody] QuoteCreateDto quoteDto)
+        {
+            try
+            {
+                if (quoteDto == null)
+                    return BadRequest("Quote data is required.");
 
-        //        var result = await _quickBooksApiManager.CreateOrUpdateQuoteAsync(quote);
-        //        return Ok(result);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, $"❌ Error while creating QuickBooks quote: {ex.Message}");
-        //    }
-        //}
+                // ✅ Ensure customer matches DB record
+                await _accountingSyncManager
+                    .CheckInvoice_QuotesDtoCustomerIdAndCustomerQuickBooksIDAppropriatingInLocalDbValues(
+                        quoteDto.CustomerId, quoteDto.CustomerQuickBooksId
+                    );
 
-        //[HttpPut("update-quote")]
-        //public async Task<IActionResult> UpdateQuote([FromBody] QuoteCreateDto quoteDto)
-        //{
-        //    try
-        //    {
-        //        await _accountingSyncManager.CheckInvoice_QuotesDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(quoteDto.CustomerId, quoteDto.CustomerXeroId);
+                var quote = new Quote
+                {
+                    CustomerId = quoteDto.CustomerId,
+                    CustomerQuickBooksId = quoteDto.CustomerQuickBooksId,
+                    QuoteNumber = quoteDto.QuoteNumber,
+                    Description = quoteDto.Description,
+                    TotalAmount = quoteDto.TotalAmount,
+                    ExpiryDate = quoteDto.ExpiryDate ?? DateTime.UtcNow.AddDays(30),
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
 
-        //        var quote = new Quote
-        //        {
-        //            QuickBooksId = quoteDto.QuoteQuickBooksId,
-        //            QuoteNumber = quoteDto.QuoteNumber,
-        //            Description = quoteDto.Description,
-        //            TotalAmount = quoteDto.TotalAmount,
-        //            ExpiryDate = quoteDto.ExpiryDate ?? DateTime.UtcNow.AddDays(30),
-        //            CustomerId = quoteDto.CustomerId,
-        //            UpdatedAt = DateTime.UtcNow
-        //        };
+                var result = await _quickBooksApiManager.CreateOrUpdateQuoteAsync(quote);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"❌ Error while creating quote in QuickBooks: {ex.Message}");
+            }
+        }
 
-        //        var result = await _quickBooksApiManager.CreateOrUpdateQuoteAsync(quote);
-        //        return Ok(result);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, $"❌ Error while updating QuickBooks quote: {ex.Message}");
-        //    }
-        //}
+
+        [HttpPut("update-quote")]
+        public async Task<IActionResult> UpdateQuote([FromBody] QuoteCreateDto quoteDto)
+        {
+            try
+            {
+                if (quoteDto == null)
+                    return BadRequest("Quote data is required.");
+
+                await _accountingSyncManager
+                    .CheckInvoice_QuotesDtoCustomerIdAndCustomerQuickBooksIDAppropriatingInLocalDbValues(
+                        quoteDto.CustomerId, quoteDto.CustomerQuickBooksId
+                    );
+
+                var quote = new Quote
+                {
+                    QuickBooksId = quoteDto.QuoteQuickBooksId,
+                    CustomerId = quoteDto.CustomerId,
+                    CustomerQuickBooksId = quoteDto.CustomerQuickBooksId,
+                    QuoteNumber = quoteDto.QuoteNumber,
+                    Description = quoteDto.Description,
+                    TotalAmount = quoteDto.TotalAmount,
+                    ExpiryDate = quoteDto.ExpiryDate ?? DateTime.UtcNow.AddDays(30),
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                var result = await _quickBooksApiManager.CreateOrUpdateQuoteAsync(quote);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"❌ Error while updating quote in QuickBooks: {ex.Message}");
+            }
+        }
+
+
     }
 }

@@ -10,6 +10,7 @@ using Domain_Layer.Models;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Text.Json;
 
 namespace Application_Layer.Services
 {
@@ -508,5 +509,181 @@ namespace Application_Layer.Services
             }
         }
 
+        // ✅ Invoice from QuickBooks → Local DB
+        public async Task HandleQuickBooksInvoiceChangedAsync(string quickBooksInvoiceId)
+        {
+            try
+            {
+                _logger.LogInformation("🔄 QB → DB Invoice Sync: InvoiceId={Id}", quickBooksInvoiceId);
+
+                var json = await _qb.GetInvoiceByIdAsync(quickBooksInvoiceId);
+                using var doc = JsonDocument.Parse(json);
+                var inv = doc.RootElement.GetProperty("Invoice");
+
+                string customerQbId = inv.GetProperty("CustomerRef").GetProperty("value").GetString();
+                string invoiceNumber = inv.GetProperty("DocNumber").GetString();
+                decimal total = inv.GetProperty("TotalAmt").GetDecimal();
+
+                // ✅ Extract first line description if exists
+                string? description = null;
+                if (inv.TryGetProperty("Line", out var lines) && lines.GetArrayLength() > 0)
+                {
+                    var firstLine = lines[0];
+                    if (firstLine.TryGetProperty("Description", out var descElement))
+                    {
+                        description = descElement.GetString();
+                    }
+                }
+
+                var customer = await _customerRepository.GetByQuickBooksIdAsync(customerQbId);
+                if (customer == null)
+                {
+                    _logger.LogWarning("⚠️ Customer with QB Id={Id} not found in local DB. Invoice skipped.", customerQbId);
+                    return;
+                }
+
+                var existing = await _invoiceRepository.GetByInvoiceQuickBooksIdAsync(quickBooksInvoiceId);
+
+                if (existing == null)
+                {
+                    var invoice = new Invoice
+                    {
+                        QuickBooksId = quickBooksInvoiceId,
+                        CustomerId = customer.Id,
+                        CustomerQuickBooksId = customer.QuickBooksId,
+                        CustomerXeroId = customer.XeroId,
+                        InvoiceNumber = invoiceNumber,
+                        TotalAmount = total,
+                        Description = description,   // ✅ SAVE DESCRIPTION
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                        SyncedToQuickBooks = true
+                    };
+
+                    await _invoiceRepository.InsertAsync(invoice);
+                    _logger.LogInformation("🟢 Created invoice #{Number} from QB", invoiceNumber);
+                }
+                else
+                {
+                    existing.CustomerId = customer.Id;
+                    //existing.QuickBooksId = quickBooksInvoiceId;
+                    existing.CustomerQuickBooksId = customer.QuickBooksId;
+                    
+                    existing.TotalAmount = total;
+                    existing.Description = description; // ✅ UPDATE DESCRIPTION
+                    existing.UpdatedAt = DateTime.UtcNow;
+                    existing.SyncedToQuickBooks = true;
+
+                    await _invoiceRepository.UpdateAsync(existing);
+                    _logger.LogInformation("🟡 Updated invoice #{Number} from QB", invoiceNumber);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ QB → DB Invoice sync failed");
+                throw;
+            }
+        }
+
+
+
+        // ✅ Quote (Estimate) from QuickBooks → Local DB
+        public async Task HandleQuickBooksQuoteChangedAsync(string quickBooksQuoteId)
+        {
+            //QuickBooks doesn't send DueDate for quotes — only an ExpirationDate.
+            try
+            {
+                _logger.LogInformation("🔄 QB → DB Quote Sync: QuoteId={Id}", quickBooksQuoteId);
+
+                var json = await _qb.GetEstimateByIdAsync(quickBooksQuoteId);
+                using var doc = JsonDocument.Parse(json);
+                var est = doc.RootElement.GetProperty("Estimate");
+
+                string customerQbId = est.GetProperty("CustomerRef").GetProperty("value").GetString();
+                string quoteNumber = est.GetProperty("DocNumber").GetString();
+                decimal total = est.GetProperty("TotalAmt").GetDecimal();
+
+                // ✅ Parse Description
+                string? description = null;
+                if (est.TryGetProperty("Line", out var lines) && lines.GetArrayLength() > 0)
+                {
+                    if (lines[0].TryGetProperty("Description", out var desc))
+                        description = desc.GetString();
+                }
+
+                // ✅ Parse Quote Expiration Date (QB uses "ExpirationDate")
+                DateTime? expiryDate = null;
+                if (est.TryGetProperty("ExpirationDate", out var expElement))
+                {
+                    if (DateTime.TryParse(expElement.GetString(), out var parsed))
+                        expiryDate = parsed;
+                }
+
+                var customer = await _customerRepository.GetByQuickBooksIdAsync(customerQbId);
+                if (customer == null)
+                {
+                    _logger.LogWarning("⚠️ QB Customer {Id} not found locally → Quote ignored", customerQbId);
+                    return;
+                }
+
+                var existing = await _quoteRepository.GetByQuoteQuickBooksIdAsync(quickBooksQuoteId);
+
+                if (existing == null)
+                {
+                    var quote = new Quote
+                    {
+                        QuickBooksId = quickBooksQuoteId,
+                        CustomerId = customer.Id,
+                        CustomerQuickBooksId = customer.QuickBooksId,
+                        CustomerXeroId = customer.XeroId,
+                        QuoteNumber = quoteNumber,
+                        TotalAmount = total,
+                        Description = description,
+                        ExpiryDate = expiryDate,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                        SyncedToQuickBooks = true
+                    };
+
+                    await _quoteRepository.InsertAsync(quote);
+                    _logger.LogInformation("🟢 Created Quote #{Number} from QB", quoteNumber);
+                }
+                else
+                {
+                    existing.CustomerId = customer.Id;
+                    existing.CustomerQuickBooksId = customer.QuickBooksId;
+                    existing.Description = description;
+                    existing.TotalAmount = total;
+                    existing.ExpiryDate = expiryDate;
+                    existing.UpdatedAt = DateTime.UtcNow;
+                    existing.SyncedToQuickBooks = true;
+
+                    await _quoteRepository.UpdateAsync(existing);
+                    _logger.LogInformation("🟡 Updated Quote #{Number} from QB", quoteNumber);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ QB → DB Quote sync failed");
+                throw;
+            }
+        }
+
+
+        public async Task<bool> CheckInvoice_QuotesDtoCustomerIdAndCustomerQuickBooksIDAppropriatingInLocalDbValues(int CustomerId, string CustomerQuickBooksId)
+        {
+            Console.WriteLine("hasanq check methodin");
+            var customer = await _customerRepository.GetByIdAsync(CustomerId);
+
+            if (customer == null)
+                throw new Exception($"Customer with ID {CustomerId} not found in local DB.");
+
+            if (customer.QuickBooksId != CustomerQuickBooksId)
+                throw new Exception($"Mismatch: local customer (ID={CustomerId}) has XeroId={customer.QuickBooksId}, " +
+                                    $"but request provided {CustomerQuickBooksId}.");
+
+            return true;
+        }
     }
+
 }

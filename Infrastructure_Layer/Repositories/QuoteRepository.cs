@@ -46,5 +46,14 @@ namespace Infrastructure_Layer.Repositories
             _context.Quotes.Remove(q);
             await _context.SaveChangesAsync();
         }
+
+
+        //quickbooks
+        public async Task<Quote> GetByQuoteQuickBooksIdAsync(string quickBooksId)
+        {
+            return await _context.Quotes
+                .FirstOrDefaultAsync(q => q.QuickBooksId == quickBooksId);
+        }
+
     }
 }

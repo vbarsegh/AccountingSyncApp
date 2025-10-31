@@ -84,5 +84,13 @@ namespace Infrastructure_Layer.Repositories
             _context.Invoices.Remove(invoice);
             await _context.SaveChangesAsync();
         }
+
+        //quockbooks
+        public async Task<Invoice> GetByInvoiceQuickBooksIdAsync(string quickBooksId)
+        {
+            return await _context.Invoices
+                .FirstOrDefaultAsync(i => i.QuickBooksId == quickBooksId);
+        }
+
     }
 }

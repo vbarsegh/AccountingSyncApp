@@ -15,5 +15,8 @@ namespace Application_Layer.Interfaces_Repository
         Task InsertAsync(Quote quote);
         Task UpdateAsync(Quote quote);
         Task DeleteAsync(int id);
+        //quickbooks
+        Task<Quote> GetByQuoteQuickBooksIdAsync(string quickBooksId);
+
     }
 }

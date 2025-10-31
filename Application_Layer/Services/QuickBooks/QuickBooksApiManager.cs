@@ -209,6 +209,178 @@ namespace Application_Layer.Services
 
 
         // -------------------- TODO: Invoices & Quotes --------------------
-        // After Customers are working, we’ll add CreateOrUpdateInvoiceAsync and CreateOrUpdateQuoteAsync here.
+        // add CreateOrUpdateInvoiceAsync and CreateOrUpdateQuoteAsync.
+        private sealed class QboInvoiceLight
+        {
+            public string Id { get; set; } = "";
+            public string SyncToken { get; set; } = "";
+            public string DocNumber { get; set; } = "";
+        }
+
+        private sealed class QboEstimateLight
+        {
+            public string Id { get; set; } = "";
+            public string SyncToken { get; set; } = "";
+            public string DocNumber { get; set; } = "";
+        }
+        public async Task<string> GetInvoiceByIdAsync(string id)
+        {
+            var client = await BuildClientAsync();
+            var req = await MakeJsonRequestAsync($"invoice/{id}", Method.Get);
+            var resp = await client.ExecuteAsync(req);
+
+            if (!resp.IsSuccessful)
+                throw new Exception($"Failed to get QBO invoice: {resp.StatusCode} {resp.Content}");
+
+            return resp.Content!;
+        }
+        public async Task<string> GetEstimateByIdAsync(string id)
+        {
+            var client = await BuildClientAsync();
+            var req = await MakeJsonRequestAsync($"estimate/{id}", Method.Get);
+            var resp = await client.ExecuteAsync(req);
+
+            if (!resp.IsSuccessful)
+                throw new Exception($"Failed to get QBO estimate: {resp.StatusCode} {resp.Content}");
+
+            return resp.Content!;
+        }
+        private static QboInvoiceLight ParseInvoice(string json)
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("Invoice", out var inv))
+                return new QboInvoiceLight
+                {
+                    Id = inv.GetProperty("Id").GetString() ?? "",
+                    SyncToken = inv.GetProperty("SyncToken").GetString() ?? "",
+                    DocNumber = inv.GetProperty("DocNumber").GetString() ?? ""
+                };
+
+            return new QboInvoiceLight();
+        }
+        private static QboEstimateLight ParseEstimate(string json)
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("Estimate", out var est))
+                return new QboEstimateLight
+                {
+                    Id = est.GetProperty("Id").GetString() ?? "",
+                    SyncToken = est.GetProperty("SyncToken").GetString() ?? "",
+                    DocNumber = est.GetProperty("DocNumber").GetString() ?? ""
+                };
+
+            return new QboEstimateLight();
+        }
+        public async Task<Invoice> CreateOrUpdateInvoiceAsync(Invoice inv)
+        {
+            var client = await BuildClientAsync();
+
+            var body = new Dictionary<string, object?>
+            {
+                ["CustomerRef"] = new { value = inv.CustomerQuickBooksId },
+                ["Line"] = new object[]
+                {
+                    new 
+                    {
+                        DetailType = "SalesItemLineDetail",
+                        //we include DetailType and SalesItemLineDetail Because QuickBooks API does not allow creating an invoice without at least one line item.
+                        SalesItemLineDetail = new { ItemRef = new { value = "1" } },
+                        Amount = inv.TotalAmount,
+                        Description = inv.Description
+                    }
+                },
+                ["TxnDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd")
+            };
+
+            RestRequest req;
+
+            if (string.IsNullOrEmpty(inv.QuickBooksId))
+            {
+                req = await MakeJsonRequestAsync("invoice", Method.Post);
+            }
+            else
+            {
+                var latest = ParseInvoice(await GetInvoiceByIdAsync(inv.QuickBooksId));
+                body["Id"] = latest.Id;
+                body["SyncToken"] = latest.SyncToken;
+                body["sparse"] = true;
+
+                req = await MakeJsonRequestAsync("invoice?operation=update", Method.Post);
+            }
+
+            var json = JsonSerializer.Serialize(body, new JsonSerializerOptions { IgnoreNullValues = true });
+            req.AddStringBody(json, DataFormat.Json);
+
+            var resp = await client.ExecuteAsync(req);
+            if (!resp.IsSuccessful)
+                throw new Exception($"Invoice sync failed: {resp.StatusCode} {resp.Content}");
+
+            var parsed = ParseInvoice(resp.Content!);
+            inv.QuickBooksId = parsed.Id;
+            inv.SyncedToQuickBooks = true;
+
+            return inv;
+        }
+
+        public async Task<Quote> CreateOrUpdateQuoteAsync(Quote quote)
+        {
+            var client = await BuildClientAsync();
+
+            var body = new Dictionary<string, object?>
+            {
+                ["CustomerRef"] = new { value = quote.CustomerQuickBooksId },
+                ["Line"] = new object[]
+                {
+            new
+            {
+                DetailType = "SalesItemLineDetail",
+                SalesItemLineDetail = new { ItemRef = new { value = "1" } }, // default item
+                Amount = quote.TotalAmount,
+                Description = quote.Description
+            }
+                },
+                ["TxnDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                ["ExpirationDate"] = (quote.ExpiryDate ?? DateTime.UtcNow.AddDays(30)).ToString("yyyy-MM-dd")
+            };
+
+            RestRequest req;
+
+            // ✅ CREATE
+            if (string.IsNullOrEmpty(quote.QuickBooksId))
+            {
+                req = await MakeJsonRequestAsync("estimate", Method.Post);
+            }
+            // ✅ UPDATE
+            else
+            {
+                var latest = ParseEstimate(await GetEstimateByIdAsync(quote.QuickBooksId));
+
+                body["Id"] = latest.Id;
+                body["SyncToken"] = latest.SyncToken;
+                body["sparse"] = true;
+
+                req = await MakeJsonRequestAsync("estimate?operation=update", Method.Post);
+            }
+
+            var json = JsonSerializer.Serialize(body, new JsonSerializerOptions { IgnoreNullValues = true });
+            req.AddStringBody(json, DataFormat.Json);
+
+            var resp = await client.ExecuteAsync(req);
+            if (!resp.IsSuccessful)
+                throw new Exception($"Quote sync failed: {resp.StatusCode} {resp.Content}");
+
+            var parsed = ParseEstimate(resp.Content!);
+            quote.QuickBooksId = parsed.Id;
+            quote.SyncedToQuickBooks = true;
+
+            return quote;
+        }
+
+
+
     }
 }

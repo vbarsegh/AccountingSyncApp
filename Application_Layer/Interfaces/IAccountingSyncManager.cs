@@ -19,6 +19,9 @@ namespace Application_Layer.Interfaces
 
         //QuickBooks
         Task HandleQuickBooksCustomerChangedAsync(string quickBooksCustomerId);
+        Task HandleQuickBooksInvoiceChangedAsync(string quickBooksInvoiceId);
+        Task HandleQuickBooksQuoteChangedAsync(string quickBooksQuoteId);
+        Task<bool> CheckInvoice_QuotesDtoCustomerIdAndCustomerQuickBooksIDAppropriatingInLocalDbValues(int CustomerId, string CustomerQuickBooks);
 
     }
 }

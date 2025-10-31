@@ -11,6 +11,8 @@
         // Relation to Customer
         public int CustomerId { get; set; } // FK to local DB
         public string? CustomerXeroId { get; set; } // ContactID from Xero
+        public string? CustomerQuickBooksId { get; set; } // FK mapping to QuickBooks customer
+
 
         public string Description { get; set; } = string.Empty;
 

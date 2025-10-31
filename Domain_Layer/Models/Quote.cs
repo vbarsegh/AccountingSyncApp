@@ -9,6 +9,7 @@
 
         public int CustomerId { get; set; }
         public string? CustomerXeroId { get; set; }
+        public string? CustomerQuickBooksId { get; set; } // FK mapping to QuickBooks customer
 
         public string Description { get; set; } = string.Empty;
         public decimal TotalAmount { get; set; }
