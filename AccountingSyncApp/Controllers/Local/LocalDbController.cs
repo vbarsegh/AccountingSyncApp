@@ -111,7 +111,7 @@ namespace AccountingSyncApp.Controllers.Local
                 _logger.LogInformation("🧾 Creating new invoice locally for CustomerXeroId={CustomerXeroId}", invoiceDto.CustomerXeroId);
 
                 await _accountingSyncManager.CheckInvoice_QuotesDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(invoiceDto.CustomerId, invoiceDto.CustomerXeroId);
-
+                await _accountingSyncManager.CheckInvoice_QuotesDtoCustomerIdAndCustomerQuickBooksIDAppropriatingInLocalDbValues(invoiceDto.CustomerId, invoiceDto.CustomerQuickBooksId);
                 var createdInvoice = await _xeroInvoiceSync.SyncCreatedInvoiceAsync(invoiceDto);
 
                 return Ok(new
@@ -142,7 +142,7 @@ namespace AccountingSyncApp.Controllers.Local
                 _logger.LogInformation("✏️ Updating invoice in Xero and local DB: {InvoiceNumber}", invoiceDto.InvoiceNumber);
 
                 await _accountingSyncManager.CheckInvoice_QuotesDtoCustomerIdAndCustomerXeroIDAppropriatingInLocalDbValues(invoiceDto.CustomerId, invoiceDto.CustomerXeroId);
-
+                await _accountingSyncManager.CheckInvoice_QuotesDtoCustomerIdAndCustomerQuickBooksIDAppropriatingInLocalDbValues(invoiceDto.CustomerId, invoiceDto.CustomerQuickBooksId);
                 var result = await _xeroInvoiceSync.SyncUpdatedInvoiceAsync(invoiceDto);
 
                 return Ok(new

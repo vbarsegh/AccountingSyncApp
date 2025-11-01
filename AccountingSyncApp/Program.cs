@@ -40,9 +40,9 @@ builder.Services.AddScoped<IXeroApiManager, XeroApiManager>();
 builder.Services.AddScoped<IXeroAuthService, XeroAuthService>();
 builder.Services.AddScoped<IQuickBooksAuthService, QuickBooksAuthService>();
 builder.Services.AddScoped<IQuickBooksApiManager, QuickBooksApiManager>();
-builder.Services.AddScoped<IXeroCustomerSyncService, XeroCustomerSyncService>();
-builder.Services.AddScoped<IXeroInvoiceSyncService, XeroInvoiceSyncService>();
-builder.Services.AddScoped<IXeroQuoteSyncService, XeroQuoteSyncService>();
+builder.Services.AddScoped<IXeroCustomerSyncService, CustomerSyncServiceXeroAndQuickBooks>();
+builder.Services.AddScoped<IXeroInvoiceSyncService, InvoiceSyncServiceXeroAndQuickBooks>();
+builder.Services.AddScoped<IXeroQuoteSyncService, QuoteSyncServiceXeroAndQuickBooks>();
 ////
 builder.Services.AddHostedService<XeroQuotePollingService>();
 ////

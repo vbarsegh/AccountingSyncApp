@@ -515,7 +515,6 @@ namespace Application_Layer.Services
             try
             {
                 _logger.LogInformation("🔄 QB → DB Invoice Sync: InvoiceId={Id}", quickBooksInvoiceId);
-
                 var json = await _qb.GetInvoiceByIdAsync(quickBooksInvoiceId);
                 using var doc = JsonDocument.Parse(json);
                 var inv = doc.RootElement.GetProperty("Invoice");
@@ -679,7 +678,7 @@ namespace Application_Layer.Services
                 throw new Exception($"Customer with ID {CustomerId} not found in local DB.");
 
             if (customer.QuickBooksId != CustomerQuickBooksId)
-                throw new Exception($"Mismatch: local customer (ID={CustomerId}) has XeroId={customer.QuickBooksId}, " +
+                throw new Exception($"Mismatch: local customer (ID={CustomerId}) has QuickBooksId={customer.QuickBooksId}, " +
                                     $"but request provided {CustomerQuickBooksId}.");
 
             return true;
