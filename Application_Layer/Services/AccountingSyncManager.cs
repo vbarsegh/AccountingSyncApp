@@ -66,6 +66,12 @@ namespace Application_Layer.Services
                 Console.WriteLine("xeroId->" + CustomerXeroId);
                 _logger.LogInformation("🔄 Starting Xero → DB synchronization (latest customer only)...");
                 var contactsJson = await _xeroApiManager.GetCustomerByXeroIdAsync(CustomerXeroId);
+                if (string.IsNullOrWhiteSpace(contactsJson))
+                {
+                    _logger.LogWarning("⏭️ Skipping invoice — Xero returned null or empty for customer {CustomerXeroId}", CustomerXeroId);
+                    return; // stop processing this invoice event
+                }
+
                 var root = JsonConvert.DeserializeObject<JObject>(contactsJson);
                 var contactsArray = root["Contacts"]?.ToObject<List<CustomerReadDto>>() ?? new List<CustomerReadDto>();
                 var latestDto = contactsArray.FirstOrDefault();
@@ -180,6 +186,11 @@ namespace Application_Layer.Services
                 Console.WriteLine("Invoice Xero Id = "  + invoiceXeroId);
                 // 1️⃣ Get full invoice JSON from Xero
                 var invoicesJson = await _xeroApiManager.GetInvoiceByXeroIdAsync(invoiceXeroId);
+                if (string.IsNullOrWhiteSpace(invoicesJson))
+                {
+                    _logger.LogWarning("⏭️ Skipping invoice — Xero returned null or empty for invoice {invoiceXeroId}", invoiceXeroId);
+                    return; // stop processing this invoice event
+                }
                 var root = JsonConvert.DeserializeObject<JObject>(invoicesJson);
                 var invoicesArray = root["Invoices"]?.ToObject<List<InvoiceReadDto>>() ?? new List<InvoiceReadDto>();
                 var latestDto = invoicesArray.FirstOrDefault();

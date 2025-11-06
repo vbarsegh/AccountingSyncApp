@@ -91,7 +91,7 @@ namespace Infrastructure_Layer.Services
         public async Task<string> SyncUpdatedCustomerAsync(CustomerCreateDto dto)
         {
             // 1️⃣ Find customer in local DB
-            var localCustomer = await _customers.GetByXeroIdAsync(dto.XeroId);
+            var localCustomer = await _customers.GetByXeroIdAsync(dto.XeroId);//ste poxem vor get arvi CustomerdId-ov!!!
             if (localCustomer == null)
                 throw new Exception($"Customer with XeroId {dto.XeroId} not found in local DB.");
 

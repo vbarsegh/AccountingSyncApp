@@ -81,9 +81,11 @@ namespace Application_Layer.Services.Xero
             request.AddHeader("Accept", "application/json");
 
             var response = await client.ExecuteAsync(request);
-            if (!response.IsSuccessful)
-                throw new Exception($"Failed to get contact by ID: {response.Content}");
-
+            if (!response.IsSuccessful || string.IsNullOrEmpty(response.Content))
+            {
+                //_logger.LogWarning("Contact not found in Xero or request failed: {xeroId}", xeroId);
+                return null; // ✅ skip instead of throwing
+            }
             return response.Content;
         }
         public async Task<string> GetCustomerByEmailAsync(string email)
@@ -99,10 +101,12 @@ namespace Application_Layer.Services.Xero
 
             var response = await client.ExecuteAsync(request);
 
-            if (!response.IsSuccessful)
-                throw new Exception($"Xero API error: {response.Content}");
-
-            return response.Content; // JSON with matching contact(s)
+            if (!response.IsSuccessful || string.IsNullOrEmpty(response.Content))
+            {
+                //_logger.LogWarning("Contact not found in Xero or request failed: {xeroId}", xeroId);
+                return null; // ✅ skip instead of throwing
+            }
+            return response.Content;
         }
 
         public async Task<string> GetLatestCustomerAsync()
@@ -190,12 +194,13 @@ namespace Application_Layer.Services.Xero
 
                 var response = await client.ExecuteAsync(request);
             Console.WriteLine("\n\n\n"  + "hasavXeroApimanager\n");
-            if (!response.IsSuccessful)
-                    throw new Exception($"Xero API error: {response.Content}");
-            //kam steeeeeeeeeeeeeeee
-
-                return response.Content;
+            if (!response.IsSuccessful || string.IsNullOrEmpty(response.Content))
+            {
+                //_logger.LogWarning("Contact not found in Xero or request failed: {xeroId}", xeroId);
+                return null; // ✅ skip instead of throwing
             }
+            return response.Content;
+        }
         //The difference is the URL and whether XeroId exists. That’s how Xero knows “create” vs “update.”
         public async Task<string> UpdateCustomerAsync(CustomerCreateDto customer)
         {
@@ -237,8 +242,11 @@ namespace Application_Layer.Services.Xero
             request.AddJsonBody(body);
 
             var response = await client.ExecuteAsync(request);
-            if (!response.IsSuccessful)
-                throw new Exception($"Xero API error: {response.Content}");
+            if (!response.IsSuccessful || string.IsNullOrEmpty(response.Content))
+            {
+                //_logger.LogWarning("Contact not found in Xero or request failed: {xeroId}", xeroId);
+                return null; // ✅ skip instead of throwing
+            }
             return response.Content;
         }
 
@@ -260,9 +268,13 @@ namespace Application_Layer.Services.Xero
 
             var response = await client.ExecuteAsync(request);
             if (!response.IsSuccessful)
-                throw new Exception($"Failed to get invoice by ID: {response.Content}");
+            {
+                Console.WriteLine("❗ Xero invoice not found or request failed: {invoiceId}. Response: {response}"+ invoiceXeroId + response.Content);
+                return null; // skip this invoice in webhook processing
+            }
 
             return response.Content;
+
         }
 
         public async Task<string> GetInvoicesAsync()
@@ -315,9 +327,11 @@ namespace Application_Layer.Services.Xero
 
             request.AddJsonBody(body);
             var response = await client.ExecuteAsync(request);
-            if (!response.IsSuccessful)
-                throw new Exception($"Xero API error: {response.Content}");
-
+            if (!response.IsSuccessful || string.IsNullOrEmpty(response.Content))
+            {
+                //_logger.LogWarning("Contact not found in Xero or request failed: {xeroId}", xeroId);
+                return null; // ✅ skip instead of throwing
+            }
             return response.Content;
         }
 
@@ -369,15 +383,11 @@ namespace Application_Layer.Services.Xero
             var response = await client.ExecuteAsync(request);
 
             // ✅ Handle response logging and errors
-            if (!response.IsSuccessful)
+            if (!response.IsSuccessful || string.IsNullOrEmpty(response.Content))
             {
-                Console.WriteLine("❌ Xero update failed:");
-                Console.WriteLine($"StatusCode: {response.StatusCode}");
-                Console.WriteLine($"Content: {response.Content}");
-                throw new Exception($"Xero API error: {response.Content}");
+                //_logger.LogWarning("Contact not found in Xero or request failed: {xeroId}", xeroId);
+                return null; // ✅ skip instead of throwing
             }
-
-            Console.WriteLine($"✅ Invoice {dto.InvoiceNumber} updated successfully in Xero.");
             return response.Content;
         }
 

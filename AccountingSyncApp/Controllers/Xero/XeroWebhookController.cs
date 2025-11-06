@@ -10,7 +10,7 @@ using System.Text;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 [ApiController]
-[Route("api/webhooks/xeroo")]
+[Route("api/webhooks/xero")]
 public class XeroWebhookController : ControllerBase
 {
     private readonly AccountingSyncManager _syncManager;
@@ -31,7 +31,8 @@ public class XeroWebhookController : ControllerBase
         //Read and log the webhook body (JSON describing what changed)
         using var reader = new StreamReader(Request.Body);
         var payload = await reader.ReadToEndAsync();
-        _logger.LogInformation("Received Xero webhook payload: {payload}", payload);//fpr example`{
+        Console.WriteLine("\n\n\nwebhook send->" + payload + "\n\n\n");
+        //_logger.LogInformation("Received Xero webhook payload: {payload}", payload);//fpr example`{
         /*  {"events":[{
   "resourceUrl": "https://api.xero.com/api.xro/2.0/Contacts/9980a9a8-dbbe-4c61-88a0-1c0971f54475",
   "resourceId": "9980a9a8-dbbe-4c61-88a0-1c0971f54475",
