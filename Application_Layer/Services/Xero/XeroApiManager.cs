@@ -5,6 +5,7 @@ using Application_Layer.Interfaces.Xero;
 using Application_Layer.Interfaces_Repository;
 using Domain_Layer.Models;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using RestSharp;
@@ -19,11 +20,14 @@ namespace Application_Layer.Services.Xero
         private readonly IXeroTokenRepository _tokenRepository;
         private readonly IXeroAuthService _xeroAuthService; // ✅ add this
         private readonly IConfiguration _config;
-        public XeroApiManager(IXeroTokenRepository tokenRepository, IXeroAuthService xeroAuthService, IConfiguration config)
+        private readonly ILogger<XeroApiManager> _logger;
+
+        public XeroApiManager(IXeroTokenRepository tokenRepository, IXeroAuthService xeroAuthService, IConfiguration config, ILogger<XeroApiManager> logger)
         {
             _tokenRepository = tokenRepository;
             _xeroAuthService = xeroAuthService;
             _config = config;
+            _logger = logger;
         }
      
 
@@ -83,7 +87,7 @@ namespace Application_Layer.Services.Xero
             var response = await client.ExecuteAsync(request);
             if (!response.IsSuccessful || string.IsNullOrEmpty(response.Content))
             {
-                //_logger.LogWarning("Contact not found in Xero or request failed: {xeroId}", xeroId);
+                _logger.LogWarning("Contact not found in Xero or request failed: {xeroId}", xeroId);
                 return null; // ✅ skip instead of throwing
             }
             return response.Content;

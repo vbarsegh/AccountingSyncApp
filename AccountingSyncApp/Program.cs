@@ -45,12 +45,11 @@ builder.Services.AddScoped<IXeroInvoiceSyncService, InvoiceSyncServiceXeroAndQui
 builder.Services.AddScoped<IXeroQuoteSyncService, QuoteSyncServiceXeroAndQuickBooks>();
 ////
 builder.Services.AddHostedService<XeroQuotePollingService>();
-////
-builder.Services.AddScoped<AccountingSyncManager>();
-
 
 builder.Services.AddDbContext<AccountingDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")),
+    contextLifetime: ServiceLifetime.Scoped,
+    optionsLifetime: ServiceLifetime.Scoped);
 
 
 

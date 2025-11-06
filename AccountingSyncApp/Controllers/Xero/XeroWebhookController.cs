@@ -1,4 +1,5 @@
-﻿using Application_Layer.Services;
+﻿using Application_Layer.Interfaces;
+using Application_Layer.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Hosting;
@@ -10,18 +11,19 @@ using System.Text;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 [ApiController]
-[Route("api/webhooks/xero")]
+[Route("api/webhooks/xeroW")]
 public class XeroWebhookController : ControllerBase
 {
-    private readonly AccountingSyncManager _syncManager;
+    private readonly IAccountingSyncManager _syncManager;
     private readonly ILogger<XeroWebhookController> _logger;
     private readonly IConfiguration _config;
-
-    public XeroWebhookController(AccountingSyncManager syncManager, ILogger<XeroWebhookController> logger, IConfiguration config)
+    private readonly IServiceProvider _serviceProvider;
+    public XeroWebhookController(IAccountingSyncManager syncManager, ILogger<XeroWebhookController> logger, IConfiguration config , IServiceProvider serviceProvider)
     {
         _syncManager = syncManager;
         _logger = logger;
         _config = config;
+        _serviceProvider = serviceProvider;
     }
 
     [HttpPost]
@@ -58,58 +60,84 @@ public class XeroWebhookController : ControllerBase
         }
 
         // 3️⃣ This request might be the “intent to receive” test OR a real webhook
-        if (string.IsNullOrWhiteSpace(payload))
+        //if (string.IsNullOrWhiteSpace(payload))
+        //{
+        //    //When you first register your webhook URL in Xero developer portal, Xero sends an empty POST request to test if your endpoint is reachable.
+        //    //That empty POST is the “intent to receive” handshake.
+        //    //If payload is empty → you simply return 200 OK to confirm your endpoint is working.
+        //    //After that, real webhook events will contain JSON data.
+        //    _logger.LogInformation("Received 'Intent to receive' handshake from Xero ✅");
+        //    return Ok();
+        //}
+
+        // ✅ Always return 200 OK quickly (ACKNOWLEDGE FIRST)
+        // Respond immediately to Xero (so it doesn't retry)
+        _logger.LogInformation("✅ Webhook accepted by server, starting async processing...");
+        Task.Run(async () =>
         {
-            //When you first register your webhook URL in Xero developer portal, Xero sends an empty POST request to test if your endpoint is reachable.
-            //That empty POST is the “intent to receive” handshake.
-            //If payload is empty → you simply return 200 OK to confirm your endpoint is working.
-            //After that, real webhook events will contain JSON data.
-            _logger.LogInformation("Received 'Intent to receive' handshake from Xero ✅");
-            return Ok();
-        }
-        Console.WriteLine("Minchev ste galis a pastroen");
-        ////
-        // ✅ Parse the webhook payload
-        var json = JObject.Parse(payload);
-        var events = json["events"]?.ToObject<List<JObject>>();
-
-        if (events == null || events.Count == 0)
-        {
-            _logger.LogWarning("No events found in Xero webhook payload.");
-            return Ok();
-        }
-
-        foreach (var evt in events)
-        {
-            var resourceId = evt["resourceId"]?.ToString();
-            var eventCategory = evt["eventCategory"]?.ToString();
-            var eventType = evt["eventType"]?.ToString();
-
-            _logger.LogInformation("🔔 Xero event: {Category} - {Type} (ID={Id})",
-                eventCategory, eventType, resourceId);
-
-            switch (eventCategory?.ToUpperInvariant())
+            try
             {
-                case "CONTACT":
-                    await _syncManager.SyncCustomersFromXeroAsync(resourceId);
-                    break;
+                // 🔹 Create a completely new scope for background execution
+                using var scope = _serviceProvider.CreateScope();
+                var scopedSyncManager = scope.ServiceProvider.GetRequiredService<IAccountingSyncManager>();
+                var scopedLogger = scope.ServiceProvider.GetRequiredService<ILogger<XeroWebhookController>>();
 
-                case "INVOICE":
-                    Console.WriteLine("\n\nEsi kanchvav\n\n");
-                    await _syncManager.SyncInvoicesFromXeroAsync(resourceId);
-                    break;
+                if (string.IsNullOrWhiteSpace(payload))
+                {
+                    scopedLogger.LogInformation("Received 'Intent to receive' handshake from Xero ✅");
+                    return;
+                }
 
-                case "QUOTE":
-                    Console.WriteLine("\n\nKanchvav Quotein@\n\n");
-                    //await _syncManager.SyncQuotesFromXeroAsync(resourceId);
-                    await _syncManager.SyncQuotesFromXeroPeriodicallyAsync();
-                    break;
+                var json = JObject.Parse(payload);
+                var events = json["events"]?.ToObject<List<JObject>>();
 
-                default:
-                    _logger.LogInformation("⚠️ Ignored unknown eventCategory: {eventCategory}", eventCategory);
-                    break;
+                if (events == null || events.Count == 0)
+                {
+                    scopedLogger.LogWarning("No events found in Xero webhook payload.");
+                    return;
+                }
+
+                foreach (var evt in events)
+                {
+                    try
+                    {
+                        var resourceId = evt["resourceId"]?.ToString();
+                        var eventCategory = evt["eventCategory"]?.ToString();
+                        var eventType = evt["eventType"]?.ToString();
+
+                        scopedLogger.LogInformation("🔔 Xero event: {Category} - {Type} (ID={Id})",
+                            eventCategory, eventType, resourceId);
+
+                        switch (eventCategory?.ToUpperInvariant())
+                        {
+                            case "CONTACT":
+                                await scopedSyncManager.SyncCustomersFromXeroAsync(resourceId);
+                                break;
+
+                            case "INVOICE":
+                                await scopedSyncManager.SyncInvoicesFromXeroAsync(resourceId);
+                                break;
+
+                            case "QUOTE":
+                                await scopedSyncManager.SyncQuotesFromXeroPeriodicallyAsync();
+                                break;
+
+                            default:
+                                scopedLogger.LogInformation("⚠️ Ignored unknown eventCategory: {eventCategory}", eventCategory);
+                                break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        scopedLogger.LogError(ex, "❌ Failed to process webhook event, continuing with next...");
+                    }
+                }
             }
-        }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error during async webhook processing");
+            }
+        });
 
         return Ok();
     }
