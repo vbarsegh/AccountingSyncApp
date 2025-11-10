@@ -1,19 +1,20 @@
-﻿namespace Domain_Layer.Models
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Application_Layer.DTO.Customers
 {
-    public class Customer
+    public class CustomerUpdateDto
     {
         public int Id { get; set; }
-        public string? XeroId { get; set; }
-        public string? QuickBooksId { get; set; }
-        public string? SyncToken { get; set; }//for quickbooks
         //public string? CompanyName { get; set; }//for quickBooks
         //public decimal? OpenBalance { get; set; }//for quickBooks
         public string Name { get; set; }
         public string Email { get; set; }
         public string Phone { get; set; }
         public string Address { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     }
 }

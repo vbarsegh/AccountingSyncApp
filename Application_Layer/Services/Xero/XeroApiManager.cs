@@ -19,13 +19,15 @@ namespace Application_Layer.Services.Xero
     {
         private readonly IXeroTokenRepository _tokenRepository;
         private readonly IXeroAuthService _xeroAuthService; // ✅ add this
+        private readonly ICustomerRepository _customerRepository;
         private readonly IConfiguration _config;
         private readonly ILogger<XeroApiManager> _logger;
 
-        public XeroApiManager(IXeroTokenRepository tokenRepository, IXeroAuthService xeroAuthService, IConfiguration config, ILogger<XeroApiManager> logger)
+        public XeroApiManager(IXeroTokenRepository tokenRepository, IXeroAuthService xeroAuthService, ICustomerRepository customerRepository, IConfiguration config, ILogger<XeroApiManager> logger)
         {
             _tokenRepository = tokenRepository;
             _xeroAuthService = xeroAuthService;
+            _customerRepository = customerRepository;
             _config = config;
             _logger = logger;
         }
@@ -206,8 +208,9 @@ namespace Application_Layer.Services.Xero
             return response.Content;
         }
         //The difference is the URL and whether XeroId exists. That’s how Xero knows “create” vs “update.”
-        public async Task<string> UpdateCustomerAsync(CustomerCreateDto customer)
+        public async Task<string> UpdateCustomerAsync(CustomerUpdateDto customer)
         {
+
             var accessToken = await GetValidAccessTokenAsync();
 
             // Xero’s update endpoint still uses /Contacts, not /Contacts/{id}
@@ -221,6 +224,8 @@ namespace Application_Layer.Services.Xero
             request.AddHeader("Accept", "application/json");
             request.AddHeader("Content-Type", "application/json");
 
+            Customer helper = await _customerRepository.GetByIdAsync(customer.Id);
+            Console.WriteLine("helper XeroId = " + helper.XeroId);
             // ✅ Wrap inside "Contacts" array
             var body = new
             {
@@ -228,7 +233,8 @@ namespace Application_Layer.Services.Xero
                 {
             new
             {
-                ContactID = customer.XeroId,//ete menq include enq anum XeroId-n(ContactID) body-ii mej Xero-n sranova haskanum vor pti update ani vochte create
+                //ContactID = customer.XeroId,//ete menq include enq anum XeroId-n(ContactID) body-ii mej Xero-n sranova haskanum vor pti update ani vochte create
+                ContactID = helper.XeroId,
                 customer.Name,
                 EmailAddress = customer.Email,
                 Phones = new[]

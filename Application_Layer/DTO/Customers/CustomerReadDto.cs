@@ -16,21 +16,18 @@ namespace Application_Layer.DTO.Customers
         //
         public string? CustomerQuickBooksId { get; set; }
         public string? SyncToken { get; set; }
-
-        [JsonProperty("Name")]
+        //public string? CompanyName { get; set; }//for quickBooks
+        //public decimal? OpenBalance { get; set; }//for quickBooks
         public string Name { get; set; } = string.Empty;
 
         [JsonProperty("EmailAddress")]
         public string Email { get; set; } = string.Empty;
 
-        //[JsonIgnore]
         public string Phone { get; set; } = string.Empty;
 
-        //[JsonIgnore]
         public string Address { get; set; } = string.Empty;
 
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
-        public bool SyncedToXero { get; set; } = false;
     }
 }

@@ -34,6 +34,7 @@ namespace AccountingSyncApp.Controllers.Xero
         public async Task<IActionResult> Login()
         {
             var url = _xeroAuthService.GetLoginUrlAsync();
+            Console.WriteLine("url = " + url);
             return Redirect(url);//Redirects your browser to the full Xero login URL.At this point, the user will see the real Xero login page.
             //After logging in and allowing access, Xero will redirect back to your callback:https://localhost:7059/api/xeroauth/callback?code=XXXXXXXX
 
@@ -44,6 +45,7 @@ namespace AccountingSyncApp.Controllers.Xero
         [HttpGet("callback")]
         public async Task<IActionResult> Callback([FromQuery(Name = "code")] string authorizationCode, string state)//Receive the code (authorization code) from Xero via the query string.
         {
+
             // Check state
             //Prevents cross-site request forgery (CSRF).
             if (state != "12345") // match the state you sent in login
@@ -53,7 +55,7 @@ namespace AccountingSyncApp.Controllers.Xero
                 return BadRequest("Authorization code missing.");
             try
             {
-                var token = await _xeroAuthService.HandleCallbackAsync(authorizationCode, state);
+                var token = await _xeroAuthService.HandleCallbackAsync(authorizationCode, state);//This will exchange the authorization code for:access_token refresh_token expires_in, id_token
                 return Ok(new
                 {
                     message = "Xero tokens received successfully!",

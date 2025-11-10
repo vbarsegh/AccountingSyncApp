@@ -4,6 +4,7 @@ using Application_Layer.DTO.Invoices;
 using Application_Layer.DTO.Quotes;
 using Application_Layer.Interfaces;
 using Application_Layer.Interfaces.QuickBooks;
+using Application_Layer.Interfaces_Repository;
 using Domain_Layer.Models;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
@@ -16,13 +17,16 @@ namespace AccountingSyncApp.Controllers.QuickBooks
     public class QuickBooksController : ControllerBase
     {
         private readonly IQuickBooksApiManager _quickBooksApiManager;
+        private readonly ICustomerRepository _customerRepository;
         private readonly IAccountingSyncManager _accountingSyncManager;
 
         public QuickBooksController(
             IQuickBooksApiManager quickBooksApiManager,
+            ICustomerRepository customerRepository,
             IAccountingSyncManager accountingSyncManager)
         {
             _quickBooksApiManager = quickBooksApiManager;
+            _customerRepository = customerRepository;
             _accountingSyncManager = accountingSyncManager;
         }
 
@@ -56,16 +60,17 @@ namespace AccountingSyncApp.Controllers.QuickBooks
         }
 
         [HttpPut("update-customer")]
-        public async Task<IActionResult> UpdateCustomer([FromBody] CustomerCreateDto customerDto)
+        public async Task<IActionResult> UpdateCustomer([FromBody] CustomerUpdateDto customerDto)
         {
             try
             {
                 if (customerDto == null)
                     return BadRequest("Customer data is required.");
-
+                if (customerDto.Id <= 0) return BadRequest("Local Id is required.");
+                Customer helper = await _customerRepository.GetByIdAsync(customerDto.Id);
                 var customer = new Customer
                 {
-                    QuickBooksId = customerDto.CustomerQuickBooksId,
+                    QuickBooksId = helper.QuickBooksId,
                     Name = customerDto.Name,
                     Email = customerDto.Email,
                     Phone = customerDto.Phone,

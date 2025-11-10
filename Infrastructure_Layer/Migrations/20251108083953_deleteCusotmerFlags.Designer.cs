@@ -4,6 +4,7 @@ using Infrastructure_Layer.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Infrastructure_Layer.Migrations
 {
     [DbContext(typeof(AccountingDbContext))]
-    partial class AccountingDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251108083953_deleteCusotmerFlags")]
+    partial class deleteCusotmerFlags
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -50,7 +53,8 @@ namespace Infrastructure_Layer.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("QuickBooksId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
 
                     b.Property<string>("SyncToken")
                         .HasColumnType("nvarchar(max)");
@@ -59,7 +63,8 @@ namespace Infrastructure_Layer.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("XeroId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
 
                     b.HasKey("Id");
 
@@ -101,7 +106,8 @@ namespace Infrastructure_Layer.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("QuickBooksId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
 
                     b.Property<bool>("SyncedToQuickBooks")
                         .HasColumnType("bit");
@@ -116,7 +122,8 @@ namespace Infrastructure_Layer.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("XeroId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
 
                     b.HasKey("Id");
 
@@ -193,7 +200,8 @@ namespace Infrastructure_Layer.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("QuickBooksId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
 
                     b.Property<string>("QuoteNumber")
                         .IsRequired()
@@ -212,7 +220,8 @@ namespace Infrastructure_Layer.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("XeroId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
 
                     b.HasKey("Id");
 

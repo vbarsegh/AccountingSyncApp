@@ -1,11 +1,13 @@
-﻿using Domain_Layer.Models;
+﻿using Application_Layer.Interfaces.Xero;
+using Application_Layer.Interfaces_Repository;
+using Domain_Layer.Models;
+using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using RestSharp;
 using System.Text.Json;
 using System.Web;
-using Microsoft.Extensions.Configuration;
-using Application_Layer.Interfaces_Repository;
-using Application_Layer.Interfaces.Xero;
+using static System.Formats.Asn1.AsnWriter;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Application_Layer.Services.Xero
 {
@@ -20,16 +22,16 @@ namespace Application_Layer.Services.Xero
             _config = config;
         }
 
-        public string GetLoginUrlAsync()
+        public string GetLoginUrlAsync()//full Authorization Url
         {
             //Build the authorization URL (the full link to Xero’s login page).
             //Then call return Redirect(...)
             string clientId = _config["XeroSettings:ClientId"]; //Reads your app’s Client ID from appsettings.json.Xero uses this to know which app is asking for access.
-            string redirectUri = _config["XeroSettings:RedirectUri"];//After login, Xero will send the authorization code back to this address.???
+            string redirectUri = _config["XeroSettings:RedirectUri"];//After login, Xero will send the authorization code and state back to this address.
 
             string[] scopes = new string[] //Defines which permissions your app wants from Xero.
             {
-                "openid",
+                "openid",//identity
                 "profile",
                 "email",
                 "offline_access", //allows refresh token (so you can reconnect later)
@@ -45,16 +47,18 @@ namespace Application_Layer.Services.Xero
             string authorizeUrl = "https://login.xero.com/identity/connect/authorize";//This is the official Xero OAuth 2.0 endpoint.We’ll redirect the user here to log in.
 
             var uriBuilder = new UriBuilder(authorizeUrl);//Creates a helper object to build a full URL (base + query parameters).
+                                                          //This creates a safe way to add query parameters.!!!!!!!!!!
             var query = HttpUtility.ParseQueryString(uriBuilder.Query);//Prepares a dictionary-like object where we’ll store our query parameters.??
 
             query["response_type"] = "code";//Tells Xero that we want an authorization code (standard OAuth flow).
-            query["client_id"] = clientId;//Identifies your app.
+            query["client_id"] = clientId;//Identifies your app.(Tells Xero which app is making the request.)
             query["redirect_uri"] = redirectUri;//Where Xero should redirect after login.Esi pti anpayman imananq vor Xero-n imana te ur`Xero OAuth needs to know where to send the user back after login.dra hamarel aseci vor partadir pti unenanq es field-@.
             query["scope"] = scopeString;//Which permissions your app is asking for.
-            query["state"] = "12345"; // optional state to verify later
+            query["state"] = "12345"; //This is a security value to prevent CSRF.Your backend must check:If the state returned equals the one you sent.
+            //cankalia stex poxel amen angam random tiv generacnel u set anel.
 
             uriBuilder.Query = query.ToString();//Adds all those parameters to the base Xero URL
-            return uriBuilder.ToString(); //return final URL
+            return uriBuilder.ToString(); //return final URL_>>>>>https://login.xero.com/identity/connect/authorize?response_type=code&client_id=YOUR_ID&redirect_uri=YOUR_REDIRECT&scope=openid%20profile%20email...state=12345
         }
 
         public async Task<XeroTokenResponse> HandleCallbackAsync(string authorizationCode, string state)
@@ -66,7 +70,9 @@ namespace Application_Layer.Services.Xero
             var client = new RestClient("https://identity.xero.com/connect/token");
             var request = new RestRequest()
             {
-                Method = Method.Post
+                Method = Method.Post//Token exchange is NOT “getting a resource”You are not retrieving a static resource.
+                //You are performing a sensitive operation:  exchanging authorization code | generating new tokens | validating client credentials | returning long-lived refresh tokens
+                //That is why your method uses POST — because you are not “getting” something — you are exchanging a secret temporary code for permanent tokens.
             };
 
             request.AddHeader("Content-Type", "application/x-www-form-urlencoded");
@@ -88,6 +94,13 @@ namespace Application_Layer.Services.Xero
             refresh_token → use to get a new access token when it expires.
             expires_in → token lifetime in seconds.
             id_token → contains basic user info (optional, if requested with openid scope).
+            example`{
+                      "access_token": "...",
+                      "refresh_token": "...",
+                      "expires_in": 1800,
+                      "id_token": "...",
+                      "token_type": "Bearer"
+                    }
             */
 
             if (!response.IsSuccessful)

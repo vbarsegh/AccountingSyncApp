@@ -47,9 +47,7 @@ namespace AccountingSyncApp.Controllers.Local
             {
                 if (customerDto == null)
                     return BadRequest("Customer data is required.");
-
                 _logger.LogInformation("📥 Creating new customer locally: {Name}", customerDto.Name);
-
                 await _xeroCustomerSync.SyncCreatedCustomerAsync(customerDto);
                 return Ok(new
                 {
@@ -64,18 +62,17 @@ namespace AccountingSyncApp.Controllers.Local
         }
         // ✅ PUT: api/localdb/update
         [HttpPut("update")]
-        public async Task<IActionResult> UpdateCustomer([FromBody] CustomerCreateDto customerDto)
+        public async Task<IActionResult> UpdateCustomer([FromBody] CustomerUpdateDto customerDto)
         {
             try
             {
                 if (customerDto == null)
                     return BadRequest("Customer data is required.");
 
-                if (string.IsNullOrWhiteSpace(customerDto.XeroId))
-                    return BadRequest("XeroId is required to update a customer.");
+                if (customerDto.Id <= 0)
+                    return BadRequest("Id is required to update a customer.");//chem karcum ,pti esi poxvi XeroId-ic sovorakan Id-ii!!!
 
                 _logger.LogInformation("✏️ Updating customer in Xero and local DB: {Name}", customerDto.Name);
-
                 var result = await _xeroCustomerSync.SyncUpdatedCustomerAsync(customerDto);
 
                 return Ok(new

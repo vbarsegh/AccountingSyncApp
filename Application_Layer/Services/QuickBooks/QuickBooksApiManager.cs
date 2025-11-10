@@ -199,7 +199,7 @@ namespace Application_Layer.Services
             {
                 c.QuickBooksId = created.Id;
                 c.SyncToken = created.SyncToken; // ensure your Domain Customer has this property
-                c.SyncedToQuickBooks = true;
+                //c.SyncedToQuickBooks = true;
             }
 
             _logger.LogInformation("✅ Customer '{Name}' synced successfully with QuickBooks (Id={Id})", c.Name, c.QuickBooksId);

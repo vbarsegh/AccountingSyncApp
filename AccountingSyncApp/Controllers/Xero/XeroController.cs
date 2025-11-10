@@ -66,7 +66,7 @@ namespace AccountingSyncApp.Controllers.Xero
         }
 
         [HttpPut("update-customer")]
-        public async Task<IActionResult> UpdateCustomer([FromBody] CustomerCreateDto customerDto)
+        public async Task<IActionResult> UpdateCustomer([FromBody] CustomerUpdateDto customerDto)
         {
             if (customerDto == null)
                 return BadRequest("Customer data is required.");

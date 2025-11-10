@@ -24,13 +24,17 @@ namespace Infrastructure_Layer.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // Customer PK
-            modelBuilder.Entity<Customer>()
-                .HasKey(c => c.Id);
-
             // XeroToken PK
             modelBuilder.Entity<XeroTokenResponse>()
                 .HasKey(t => t.Id);
+
+            // QuickBooks Token PK
+            modelBuilder.Entity<QuickBooksTokenResponse>()
+                .HasKey(t => t.Id);
+
+            // Customer PK
+            modelBuilder.Entity<Customer>()
+                .HasKey(c => c.Id);
 
             // Invoice PK
             modelBuilder.Entity<Invoice>()
@@ -57,11 +61,16 @@ namespace Infrastructure_Layer.Data
                 .WithMany()
                 .HasForeignKey(q => q.CustomerId)
                 .OnDelete(DeleteBehavior.Cascade);
+
             modelBuilder.Entity<Quote>()
                 .HasIndex(q => q.QuoteNumber)
                 .IsUnique();
 
             // Precision for amounts
+            //modelBuilder.Entity<Customer>()
+            //  .Property(i => i.OpenBalance)
+            //  .HasColumnType("decimal(18,2)");
+
             modelBuilder.Entity<Invoice>()
                 .Property(i => i.TotalAmount)
                 .HasColumnType("decimal(18,2)");
@@ -74,42 +83,6 @@ namespace Infrastructure_Layer.Data
             modelBuilder.Entity<Customer>()
                 .HasIndex(c => new { c.Name, c.Email, c.Phone, c.Address })
                 .IsUnique();
-
-
-            //XeroId and QuickBooksId can be null
-            // ✅ Customer external IDs
-            modelBuilder.Entity<Customer>()
-                .Property(c => c.XeroId)
-                .HasMaxLength(4000)
-                .IsRequired(false);
-
-            modelBuilder.Entity<Customer>()
-                .Property(c => c.QuickBooksId)
-                .HasMaxLength(4000)
-                .IsRequired(false);
-
-            // ✅ Invoice external IDs
-            modelBuilder.Entity<Invoice>()
-                .Property(i => i.XeroId)
-                .HasMaxLength(4000)
-                .IsRequired(false);
-
-            modelBuilder.Entity<Invoice>()
-                .Property(i => i.QuickBooksId)
-                .HasMaxLength(4000)
-                .IsRequired(false);
-
-            // ✅ Quote external IDs
-            modelBuilder.Entity<Quote>()
-                .Property(q => q.XeroId)
-                .HasMaxLength(4000)
-                .IsRequired(false);
-
-            modelBuilder.Entity<Quote>()
-                .Property(q => q.QuickBooksId)
-                .HasMaxLength(4000)
-                .IsRequired(false);
-
         }
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {

@@ -17,13 +17,14 @@ public class XeroWebhookController : ControllerBase
     private readonly IAccountingSyncManager _syncManager;
     private readonly ILogger<XeroWebhookController> _logger;
     private readonly IConfiguration _config;
-    private readonly IServiceProvider _serviceProvider;
-    public XeroWebhookController(IAccountingSyncManager syncManager, ILogger<XeroWebhookController> logger, IConfiguration config , IServiceProvider serviceProvider)
+    //private readonly IServiceProvider _serviceProvider;
+    private readonly IServiceScopeFactory _scopeFactory;
+    public XeroWebhookController(IAccountingSyncManager syncManager, ILogger<XeroWebhookController> logger, IConfiguration config , IServiceScopeFactory scopeFactory)
     {
         _syncManager = syncManager;
         _logger = logger;
         _config = config;
-        _serviceProvider = serviceProvider;
+        _scopeFactory = scopeFactory;
     }
 
     [HttpPost]
@@ -31,8 +32,10 @@ public class XeroWebhookController : ControllerBase
     {
         ////Accept webhook from Xero, verify signature, call sync
         //Read and log the webhook body (JSON describing what changed)
-        using var reader = new StreamReader(Request.Body);
+        using var reader = new StreamReader(Request.Body);//Request.Body It is a stream, but , but if you convert it to text (for example, using StreamReader)
         var payload = await reader.ReadToEndAsync();
+        //payload = "{\"events\":[{\"resourceId\":\"123\",\"eventCategory\":\"CONTACT\",\"eventType\":\"CREATE\"}]}";
+
         Console.WriteLine("\n\n\nwebhook send->" + payload + "\n\n\n");
         //_logger.LogInformation("Received Xero webhook payload: {payload}", payload);//fpr example`{
         /*  {"events":[{
@@ -78,7 +81,7 @@ public class XeroWebhookController : ControllerBase
             try
             {
                 // 🔹 Create a completely new scope for background execution
-                using var scope = _serviceProvider.CreateScope();
+                using var scope = _scopeFactory.CreateScope();
                 var scopedSyncManager = scope.ServiceProvider.GetRequiredService<IAccountingSyncManager>();
                 var scopedLogger = scope.ServiceProvider.GetRequiredService<ILogger<XeroWebhookController>>();
 

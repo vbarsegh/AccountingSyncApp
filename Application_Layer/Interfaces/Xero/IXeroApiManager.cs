@@ -16,7 +16,7 @@ namespace Application_Layer.Interfaces.Xero
         Task<string> GetLatestCustomerAsync();
         Task<string> GetCustomersAsync();
         Task<string> CreateCustomerAsync(CustomerCreateDto customer);
-        Task<string> UpdateCustomerAsync(CustomerCreateDto customer);
+        Task<string> UpdateCustomerAsync(CustomerUpdateDto customer);
 
         // Invoices
         Task<string> GetInvoiceByXeroIdAsync(string invoiceXeroId);

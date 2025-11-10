@@ -95,7 +95,7 @@ namespace Infrastructure_Layer.Repositories
             if (customer == null)
                 throw new Exception("Customer not found");
 
-            customer.SyncedToXero = true;
+            //customer.SyncedToXero = true;
             await _context.SaveChangesAsync();
         }
         public async Task DeleteAsync(int id)

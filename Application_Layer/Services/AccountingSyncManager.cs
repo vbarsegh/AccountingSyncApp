@@ -126,7 +126,7 @@ namespace Application_Layer.Services
                 Console.WriteLine($"🏠 Extracted address: '{latestDto.Address}'");
 
                 // 5️⃣ Check if the customer already exists in DB
-                var existing = await _customerRepository.GetByXeroIdAsync(latestDto.XeroId);
+                var existing = await _customerRepository.GetByXeroIdAsync(latestDto.XeroId);//arajarkum em es toxy habenq depi 78rd tex,yndex check anenq ete true-a flag@ el esqan ban chanenq ankap
                 if (existing == null)
                 {
                     existing = await _customerRepository.GetByDetailsAsync(
@@ -150,7 +150,6 @@ namespace Application_Layer.Services
                         Address = latestDto.Address,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow,
-                        SyncedToXero = true
                     };
 
                     await _customerRepository.InsertAsync(customer);
@@ -164,8 +163,6 @@ namespace Application_Layer.Services
                     existing.Phone = latestDto.Phone;
                     existing.Address = latestDto.Address;
                     existing.UpdatedAt = DateTime.UtcNow;
-                    existing.SyncedToXero = true;
-
                     await _customerRepository.UpdateAsync(existing);
                 }
 
@@ -465,7 +462,7 @@ namespace Application_Layer.Services
                 var email = customerObj["PrimaryEmailAddr"]?["Address"]?.ToString() ?? string.Empty;
                 var phone = customerObj["PrimaryPhone"]?["FreeFormNumber"]?.ToString() ?? string.Empty;
                 var address = customerObj["BillAddr"]?["Line1"]?.ToString() ?? string.Empty;
-
+                //ste karanq avelacnenq en open\balance-i pahy
                 _logger.LogInformation("📦 Received QuickBooks customer: {Name}, {Email}, {Phone}, {Address}", name, email, phone, address);
 
                 // 3️⃣ Try to find this customer in local DB by QuickBooksId
@@ -491,7 +488,7 @@ namespace Application_Layer.Services
                         Address = address,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow,
-                        SyncedToQuickBooks = true
+                        //SyncedToQuickBooks = true
                     };
 
                     await _customerRepository.InsertAsync(newCustomer);
@@ -507,8 +504,6 @@ namespace Application_Layer.Services
                     existing.Phone = phone;
                     existing.Address = address;
                     existing.UpdatedAt = DateTime.UtcNow;
-                    existing.SyncedToQuickBooks = true;
-
                     await _customerRepository.UpdateAsync(existing);
                     _logger.LogInformation("✅ Customer updated in local DB: {Name} (QuickBooksId={Id})", name, quickBooksCustomerId);
                 }
