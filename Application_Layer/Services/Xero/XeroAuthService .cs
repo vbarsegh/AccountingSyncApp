@@ -130,19 +130,19 @@ namespace Application_Layer.Services.Xero
             };
             await _tokenRepository.SaveTokenAsync(xeroToken);
             // Return success (tokens are stored in _xeroTokens for now)
-            return tokenResponse;
+            return xeroToken;
         }
-       
+
         public async Task<XeroTokenResponse> RefreshAccessTokenAsync(string refreshToken)
         {
             var client = new RestClient("https://identity.xero.com/connect/token");
             var request = new RestRequest();
             request.Method = Method.Post;
-            request.AddHeader("Content-Type", "application/x-www-form-urlencoded");
 
             var clientId = _config["XeroSettings:ClientId"];
             var clientSecret = _config["XeroSettings:ClientSecret"];
 
+            request.AddHeader("Content-Type", "application/x-www-form-urlencoded");
             request.AddParameter("grant_type", "refresh_token");
             request.AddParameter("refresh_token", refreshToken);
             request.AddParameter("client_id", clientId);
@@ -151,36 +151,14 @@ namespace Application_Layer.Services.Xero
             var response = await client.ExecuteAsync(request);
 
             if (!response.IsSuccessful)
-                throw new Exception("❌ Failed to refresh token: " + response.Content);
+                throw new Exception("Failed to refresh token: " + response.Content);
 
-            // 🔹 Declare the variable before using it
-            XeroTokenResponse newToken;
+            var token = JsonConvert.DeserializeObject<XeroTokenResponse>(response.Content)
+                ?? throw new Exception("Failed to parse refresh response");
 
-            try
-            {
-                newToken = JsonConvert.DeserializeObject<XeroTokenResponse>(
-                    response.Content,
-                    new JsonSerializerSettings
-                    {
-                        MissingMemberHandling = MissingMemberHandling.Ignore
-                    });
-            }
-            catch (Exception ex)
-            {
-                throw new Exception($"❌ Failed to deserialize Xero token response: {response.Content}\n{ex}");
-            }
+            token.UpdatedAt = DateTime.UtcNow;
 
-            if (newToken == null || string.IsNullOrEmpty(newToken.AccessToken))
-            {
-                throw new Exception($"❌ Xero token response did not contain AccessToken.\nResponse: {response.Content}");
-            }
-
-            newToken.UpdatedAt = DateTime.UtcNow;
-
-            // 🔹 Save to DB
-            await _tokenRepository.SaveTokenAsync(newToken);
-
-            return newToken;
+            return token;
         }
 
     }

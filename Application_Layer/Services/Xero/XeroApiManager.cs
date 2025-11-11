@@ -39,19 +39,17 @@ namespace Application_Layer.Services.Xero
         {
             var token = await _tokenRepository.GetTokenAsync();
 
-            if (token == null)
-                throw new Exception("No Xero token found. Please log in again.");
+            bool expired = token.UpdatedAt.AddSeconds(token.ExpiresIn - 30) < DateTime.UtcNow;
 
-            // Check if token is expired or close to expiring
-            if (token.UpdatedAt.AddSeconds(token.ExpiresIn) < DateTime.UtcNow)
+            if (expired)
             {
-                // Refresh the token
                 var newToken = await _xeroAuthService.RefreshAccessTokenAsync(token.RefreshToken);
-                await _tokenRepository.SaveTokenAsync(newToken);
+                await _tokenRepository.SaveTokenAsync(newToken);   // UPDATE row
                 return newToken.AccessToken;
             }
-            
+
             return token.AccessToken;
+
         }
         // Helper: Get access token from DB
 
